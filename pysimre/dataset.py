@@ -8,15 +8,32 @@ Created on Wed May 10 11:46:20 2017
 import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
+
+import dateutil
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.dates import date2num
-import matplotlib.gridspec as gridspec
-from mpl_toolkits.basemap import Basemap
 import os
 import struct
 import simplejson
-import pyproj
+
+
+# %% Classess for orbit datasets
+
+def OrbitThicknessDataset(dataset_id, *args, **kwargs):
+    """ Returns orbit data object for given orbit data id and source
+    filename """
+
+    # Get the name of the class for the dataset id
+    class_map = {
+            "ucl": "UCLOrbitThickness",
+            "nasa_jpl": "NASAJPLOrbitThickness",
+            "awi": "AWIOrbitThickness"}
+    class_name = class_map.get(dataset_id, None)
+    if class_name is None:
+        msg = "Orbit dataset class not implemented for id: %s"
+        raise ValueError(msg % str(dataset_id))
+
+    # Return the Dataset class
+    return globals()[class_name](*args, **kwargs)
 
 
 class OrbitThicknessBaseClass(object):
@@ -24,10 +41,10 @@ class OrbitThicknessBaseClass(object):
     # define data types of parameters (default: single precision float)
     dtype = defaultdict(lambda: "f4", timestamp=object)
 
-    def __init__(self):
+    def __init__(self, track_id="n/a", orbit="n/a"):
         self.filename = None
-        self.track_id = "n/a"
-        self.orbit = "n/a"
+        self.track_id = track_id
+        self.orbit = orbit
         self.timestamp = None
         self.longitude = None
         self.latitude = None
@@ -43,8 +60,7 @@ class OrbitThicknessBaseClass(object):
             setattr(self, name, array)
 
     def clip_to_latbox(self, lat_limits, direction):
-        """
-        Computes the overlap of data points for a given latitude box
+        """ Computes the overlap of data points for a given latitude box
         [lat_min, lat_max] in either the 'ascending' or 'descending'
         direction of the orbit and clips all parameters accordingly
         """
@@ -84,148 +100,6 @@ class OrbitThicknessBaseClass(object):
             data = getattr(self, parameter_name)
             setattr(self, parameter_name, data[indices])
 
-    def parameter_quickview(self, parameter_name, block=True, ylim="auto"):
-        """ Generate a simple matplotlib graph of a given parameter """
-
-        # Some sanity checks
-        if self.n_records == 0:
-            warnings.warn("No data")
-            return
-
-        if self._check_is_baseclass():
-            return
-
-        if parameter_name not in self.parameter_list:
-            warnings.warn("Parameter [%s] does not exist" % parameter_name)
-            return
-
-        # Get value for abcissa
-        if self.has_timestamp:
-            x = self.timestamp
-        else:
-            x = np.arange(self.n_records)
-
-        # Get parameter
-        y = getattr(self, parameter_name)
-
-        label = "$parameter$:%s,  $source$:%s,  $orbit$:%s" % (
-                parameter_name, self.source_id, self.orbit)
-
-        # Make the plot
-        gs = gridspec.GridSpec(1, 5)
-        plt.figure(label, figsize=(12, 6))
-
-        plt.subplots_adjust(bottom=0.075, top=0.95, left=0.1, right=0.9)
-
-        ax0 = plt.subplot(gs[0:-1])
-        # Histogram axes
-        ax1 = plt.subplot(gs[-1], sharey=ax0)
-
-        ax0.plot(x, y, lw=0.5, alpha=0.5)
-        ax0.scatter(date2num(x), y, marker=".")
-        ax0.set_title(label, loc="left")
-        if ylim != "auto":
-            plt.ylim(ylim)
-
-        valid = np.where(np.isfinite(self.sea_ice_thickness))
-        hist, bin_edges = np.histogram(
-                self.sea_ice_thickness[valid], bins=50, density=True)
-        bin_width = bin_edges[1]-bin_edges[0]
-        bin_center = bin_edges[0:-1] + 0.5*bin_width
-        ax1.barh(bin_center, hist, height=bin_width)
-        ax1.yaxis.set_ticks_position('right')
-
-        plt.show(block=block)
-
-    def map_quickview(self, block=True, basemap_args=None):
-        """ Generate a simple map with orbit location """
-
-        has_thickness = np.where(np.isfinite(self.sea_ice_thickness))[0]
-
-        grid = {
-            'coarse': {
-                'color': '1.0',
-                'dashes': [],
-                'linewidth': 0.25,
-                'fontsize': 8,
-                'zorder': 50},
-            'fine': {
-                'color': '1.0',
-                'dashes': [],
-                'linewidth': 0.1,
-                'fontsize': 8,
-                'zorder': 50}
-                }
-
-        label = "$source$:%s,  $orbit$:%s" % (
-                self.source_id, self.orbit)
-        if basemap_args is None:
-            basemap_args = get_basemap_args_from_positions(self, scale=1.5)
-        plt.figure(figsize=(6, 6))
-        m = Basemap(**basemap_args)
-        m.drawmapboundary(linewidth=0.5, fill_color='0.9', zorder=200)
-        m.drawcoastlines(linewidth=0.25, color="0.5")
-        m.fillcontinents(color="0.8", lake_color="0.8", zorder=100)
-        for type in ['coarse']:
-            parallels, keyw = self._get_parallels(grid, type)
-            m.drawparallels(parallels, **keyw)
-            meridians, keyw = self._get_meridians(grid, type)
-            m.drawmeridians(meridians, **keyw)
-        px, py = m(self.longitude, self.latitude)
-        m.scatter(px[has_thickness], py[has_thickness], marker=".", zorder=200)
-        plt.title(label, loc="left")
-        plt.show(block=block)
-
-        return basemap_args
-
-    def _get_parallels(self, grid, type):
-        latmax = 88
-        latstep = 4
-        latlabels = [0, 0, 0, 0]
-        pad = 90.0 - latmax
-        if type == 'coarse':
-            parallels = np.arange(-90+pad, 91-pad, latstep)
-        elif type == 'fine':
-            parallels = np.arange(-90+pad, 91-pad, latstep/2.0)
-        else:
-            raise ValueError('type must be ''coarse'' or ''fine''')
-        keywords = {
-            'labels': latlabels,
-            'color': grid[type]["color"],
-            'dashes': grid[type]["dashes"],
-            'linewidth': grid[type]["linewidth"],
-            'fontsize': grid[type]["fontsize"],
-            'latmax': latmax,
-            'zorder': grid[type]["zorder"]}
-        return parallels, keywords
-
-    def _get_meridians(self, grid, type):
-        latmax = 88
-        lonstep = 30
-        lonlabels = [0, 0, 0, 0]
-        if type == 'coarse':
-            meridians = np.arange(0, 360, lonstep)
-        elif type == 'fine':
-            meridians = np.arange(0, 360, lonstep/2.0)
-        else:
-            raise ValueError('type must be ''coarse'' or ''fine''')
-        keywords = {
-            'labels': lonlabels,
-            'color': grid[type]["color"],
-            'dashes': grid[type]["dashes"],
-            'linewidth': grid[type]["linewidth"],
-            'fontsize': grid[type]["fontsize"],
-            'latmax': latmax,
-            'zorder': grid[type]["zorder"]}
-        return meridians, keywords
-
-    def _check_is_baseclass(self):
-        if self.__class__.__name__ == "OrbitThicknessBaseClass":
-            warnings.warn("No quickviews for BaseClass objects")
-            return True
-        else:
-            return False
-
     @property
     def n_records(self):
         return len(self.longitude)
@@ -256,9 +130,9 @@ class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
     # Housekeeping
     n_header_lines = 3
 
-    def __init__(self, filename):
+    def __init__(self, filename, **kwargs):
 
-        super(NASAJPLOrbitThickness, self).__init__()
+        super(NASAJPLOrbitThickness, self).__init__(**kwargs)
         self.filename = filename
         self.parse_filename()
         self.parse()
@@ -322,9 +196,9 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
     header_size_bytes = 106
     datagroup_byte_size = 8
 
-    def __init__(self, filename, config_filename):
+    def __init__(self, filename, config_filename, **kwargs):
 
-        super(AWIOrbitThickness, self).__init__()
+        super(AWIOrbitThickness, self).__init__(**kwargs)
         self.filename = filename
         self.file_def = configuration_file_ordereddict(config_filename)
         self.parse_filename()
@@ -441,6 +315,62 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
         return datetime_str
 
 
+class UCLOrbitThickness(OrbitThicknessBaseClass):
+
+    # Metadata
+    source_id = "ucl"
+    source_longname = "UCL"
+
+    # Has the following parameters
+    parameter_list = ["timestamp", "longitude", "latitude",
+                      "sea_ice_thickness"]
+
+    def __init__(self, filename, **kwargs):
+        super(UCLOrbitThickness, self).__init__(**kwargs)
+        self.filename = filename
+        self.parse_filename()
+        self.parse()
+
+    def parse_filename(self):
+        """ Get start and end date from filename """
+        fbase = file_basename(self.filename)
+        strarr = fbase.split('_')
+        # Orbit Number
+        self.time_coverage_start = dateutil.parser.parse(strarr[2])
+        stop
+
+    def parse(self):
+        """ Parse data content """
+
+        # Parse the entire file
+        with open(self.filename, "r") as fh:
+            content = fh.read()
+
+        # Init data groups
+        n_records = len(content)
+        self.init_parameter_groups(n_records, self.parameter_list)
+
+        # Parse data content
+        for i, line in enumerate(content):
+            strarr = line.split()
+
+            # get timestamp
+
+
+
+            # geolocation parameters
+            self.longitude[i] = float(strarr[4])
+            self.latitude[i] = float(strarr[3])
+
+            # thickness: respect is valid flag
+            sit = float(strarr[6]) if int(strarr[4]) == 1 else np.nan
+            self.thickness[i] = sit
+
+# %% Classes for gridded datasets
+
+
+# %% General support functions
+
 def file_basename(filename, fullpath=False):
     """
     Returns the filename without file extension of a give filename (or path)
@@ -534,37 +464,3 @@ def caldate_1900(Julian):
     cal = {'year': yr, 'yearday': yday, 'month': mo, 'day': d,
            'hour': hour, 'minute': min, 'second': sec, "msec": msec}
     return cal
-
-
-def get_basemap_args_from_positions(pos, aspect=1, scale=1.1, res='h'):
-    """
-    Get basemap parameters that display the given positions
-    in a sterographic map with a given aspect (map width to map height) and
-    a scale (1 = no padding)
-    """
-    # lon_0 = np.mean([np.nanmin(pos.longitude), np.nanmax(pos.longitude)])
-    # lat_0 = np.mean([np.nanmin(pos.latitude), np.nanmax(pos.latitude)])
-    lat_0 = np.median(pos.latitude)
-    lon_0 = np.median(pos.longitude)
-    p = pyproj.Proj(proj='stere', lon_0=lon_0, lat_0=lat_0, ellps='WGS84')
-    x, y = p(pos.longitude, pos.latitude)
-    width_r = scale*(np.nanmax(x)-np.nanmin(x))
-    height_r = scale*(np.nanmax(y)-np.nanmin(y))
-    maxval = np.amax([width_r, height_r])
-    # Get the edges
-    width = maxval
-    height = maxval
-    if aspect > 1:
-        width *= aspect
-    if aspect < 1:
-        height *= aspect
-
-    basemap_kwargs = {'projection': 'stere',
-                      'width': width,
-                      'height': height,
-                      'lon_0': lon_0,
-                      'lat_0': lat_0,
-                      'lat_ts': lat_0,
-                      'resolution': res}
-
-    return basemap_kwargs
