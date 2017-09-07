@@ -11,6 +11,7 @@ import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 
+from dateutil.relativedelta import relativedelta
 import dateutil
 import numpy as np
 import os
@@ -350,6 +351,8 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
     source_id = "ucl"
     source_longname = "UCL"
 
+    datum = datetime(1950, 1, 1)
+
     # Has the following parameters
     parameter_list = ["timestamp", "longitude", "latitude",
                       "sea_ice_thickness"]
@@ -357,23 +360,14 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
     def __init__(self, filename, **kwargs):
         super(UCLOrbitThickness, self).__init__(**kwargs)
         self.filename = filename
-        self.parse_filename()
         self.parse()
-
-    def parse_filename(self):
-        """ Get start and end date from filename """
-        fbase = file_basename(self.filename)
-        strarr = fbase.split('_')
-        # Orbit Number
-        self.time_coverage_start = dateutil.parser.parse(strarr[2])
-        stop
 
     def parse(self):
         """ Parse data content """
 
         # Parse the entire file
         with open(self.filename, "r") as fh:
-            content = fh.read()
+            content = fh.readlines()
 
         # Init data groups
         n_records = len(content)
@@ -384,16 +378,17 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
             strarr = line.split()
 
             # get timestamp
-
-
+            days = float(strarr[2])
+            self.timestamp[i] = self.datum + relativedelta(days=days)
 
             # geolocation parameters
             self.longitude[i] = float(strarr[4])
             self.latitude[i] = float(strarr[3])
 
             # thickness: respect is valid flag
-            sit = float(strarr[6]) if int(strarr[4]) == 1 else np.nan
-            self.thickness[i] = sit
+            sit = float(strarr[6]) if int(strarr[5]) == 1 else np.nan
+            self.sea_ice_thickness[i] = sit
+
 
 # %% Classes for gridded datasets
 
