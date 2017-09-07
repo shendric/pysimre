@@ -169,8 +169,8 @@ class DatasetOrbitCollection(ClassTemplate):
 class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
 
     # Metatadata
-    source_id = "nasa_jpl"
-    source_longname = "NASA-JPL"
+    dataset_id = "nasa_jpl"
+    dataset_label = "NASA-JPL"
 
     # Has the following parameters
     parameter_list = ["timestamp", "longitude", "latitude", "ice_density",
@@ -238,8 +238,7 @@ class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
 class AWIOrbitThickness(OrbitThicknessBaseClass):
 
     # Metadata
-    source_id = "awi"
-    source_longname = "AWI"
+    dataset_id = "awi"
     config_file_name = "cryosat_seaice_proc_config.json"
 
     # Has the following parameters
@@ -381,8 +380,7 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
 class UCLOrbitThickness(OrbitThicknessBaseClass):
 
     # Metadata
-    source_id = "ucl"
-    source_longname = "UCL"
+    dataset_id = "ucl"
 
     datum = datetime(1950, 1, 1)
 
