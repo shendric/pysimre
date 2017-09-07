@@ -107,7 +107,7 @@ class OrbitThicknessBaseClass(object):
 
     @property
     def time_range(self):
-        return [self.timestamp[0], self.time_range[-1]]
+        return [self.timestamp[0], self.timestamp[-1]]
 
     @property
     def n_records(self):
