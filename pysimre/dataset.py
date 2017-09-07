@@ -12,7 +12,6 @@ from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
-import dateutil
 import numpy as np
 import os
 import struct
