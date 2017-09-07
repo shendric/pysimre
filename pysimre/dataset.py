@@ -117,7 +117,6 @@ class DatasetOrbitCollection(ClassTemplate):
     def __init__(self, orbit_id):
         super(DatasetOrbitCollection, self).__init__(self.__class__.__name__)
         self._orbit_id = orbit_id
-        self._n_datasets = 0
         self._datasets = {}
 
     def add_dataset(self, dataset_id, filepath):
@@ -130,13 +129,28 @@ class DatasetOrbitCollection(ClassTemplate):
         (None if dataset_id is not in the collection) """
         return self._datasets.get(dataset_id, None)
 
+    def has_dataset(self, dataset_id):
+        """ Return true of collection has the dataset `dataset_id` """
+        return dataset_id in self.dataset_list
+
     @property
     def n_datasets(self):
-        return int(self._n_datasets)
+        return len(self._datasets.keys())
+
+    @property
+    def dataset_list(self):
+        return sorted(self._datasets.keys())
 
     @property
     def orbit_id(self):
         return str(self._orbit_id)
+
+    def __str__(self):
+        msg = "SIMRE orbit dataset collection:\n"
+        msg += "       Orbit id : %s\n" % self.orbit_id
+        msg += "   Datasets (%s) : %s" % (str(self.n_datasets),
+                                    str(self.dataset_list))
+        return msg
 
 
 class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
