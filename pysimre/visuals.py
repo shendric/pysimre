@@ -59,9 +59,9 @@ class OrbitParameterGraph(object):
         if ylim != "auto":
             plt.ylim(ylim)
 
-        valid = np.where(np.isfinite(self.sea_ice_thickness))
+        valid = np.where(np.isfinite(dataset.sea_ice_thickness))
         hist, bin_edges = np.histogram(
-                self.sea_ice_thickness[valid], bins=50, density=True)
+                dataset.sea_ice_thickness[valid], bins=50, density=True)
         bin_width = bin_edges[1]-bin_edges[0]
         bin_center = bin_edges[0:-1] + 0.5*bin_width
         ax1.barh(bin_center, hist, height=bin_width)
