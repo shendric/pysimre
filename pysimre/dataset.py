@@ -44,13 +44,13 @@ def OrbitThicknessDataset(dataset_id, *args, **kwargs):
 class OrbitThicknessBaseClass(object):
 
     # define data types of parameters (default: single precision float)
-    dtype = defaultdict(lambda: "f4", timestamp=object)
+    dtype = defaultdict(lambda: "f4", time=object)
 
     def __init__(self, track_id="n/a", orbit="n/a"):
         self.filename = None
         self.track_id = track_id
         self.orbit = orbit
-        self.timestamp = None
+        self.time = None
         self.longitude = None
         self.latitude = None
         self.sea_ice_thickness = None
@@ -107,7 +107,7 @@ class OrbitThicknessBaseClass(object):
 
     @property
     def time_range(self):
-        return [self.timestamp[0], self.timestamp[-1]]
+        return [self.time[0], self.time[-1]]
 
     @property
     def n_records(self):
@@ -115,7 +115,7 @@ class OrbitThicknessBaseClass(object):
 
     @property
     def has_timestamp(self):
-        return type(self.timestamp) is np.ndarray
+        return type(self.time) is np.ndarray
 
     def __repr__(self):
         output = "\npySIMRE Orbit Thickness object:\n"
@@ -178,7 +178,7 @@ class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
     dataset_label = "NASA-JPL"
 
     # Has the following parameters
-    parameter_list = ["timestamp", "longitude", "latitude", "ice_density",
+    parameter_list = ["time", "longitude", "latitude", "ice_density",
                       "snow_density", "snow_depth", "sea_ice_thickness"]
 
     # Parameter properties
@@ -226,7 +226,7 @@ class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
             days = int(array[1])
             seconds = int(array[2])
             musecs = int(1e6*(array[2]-seconds))
-            self.timestamp[i] = datetime(int(array[0]), 1, 1) + \
+            self.time[i] = datetime(int(array[0]), 1, 1) + \
                 timedelta(days=days, seconds=seconds, microseconds=musecs)
 
             # Transfer data
@@ -247,7 +247,7 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
     config_file_name = "cryosat_seaice_proc_config.json"
 
     # Has the following parameters
-    parameter_list = ["timestamp", "longitude", "latitude", "ice_density",
+    parameter_list = ["time", "longitude", "latitude", "ice_density",
                       "snow_density", "snow_depth", "sea_ice_thickness"]
 
     # Parameter properties
@@ -293,7 +293,7 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
     def construct_data_groups(self):
         datenum = self.get_datagroup("time")
         timestamp = [self._get_datetime(time) for time in datenum]
-        self.timestamp = np.array(timestamp)
+        self.time = np.array(timestamp)
         self.longitude = self.get_datagroup("lon")
         self.latitude = self.get_datagroup("lat")
         self.ice_density = self.get_datagroup("rho_i")
@@ -390,7 +390,7 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
     datum = datetime(1950, 1, 1)
 
     # Has the following parameters
-    parameter_list = ["timestamp", "longitude", "latitude",
+    parameter_list = ["time", "longitude", "latitude",
                       "sea_ice_thickness"]
 
     def __init__(self, filename, **kwargs):
@@ -415,7 +415,7 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
 
             # get timestamp
             days = float(strarr[2])
-            self.timestamp[i] = self.datum + relativedelta(days=days)
+            self.time[i] = self.datum + relativedelta(days=days)
 
             # geolocation parameters
             self.longitude[i] = float(strarr[4])
@@ -432,9 +432,18 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
     dataset_id = "ccicdr"
 
     # Has the following parameters
-    parameter_list = ["timestamp", "longitude", "latitude",
+    parameter_list = ["time", "longitude", "latitude",
                       "sea_ice_thickness", "snow_depth", "snow_density",
                       "ice_density"]
+
+    parameter_map = {
+            "time": "timestamp",
+            "longitude": "longitude",
+            "latitude": "latitude",
+            "sea_ice_thickness": "sea_ice_thickness",
+            "snow_depth": "snow_depth",
+            "snow_density": "snow_density",
+            "ice_density": "ice_density"}
 
     time_units = "seconds since 1970-01-01"
     time_calendar = "standard"
@@ -450,7 +459,8 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
                       time_units=self.time_units,
                       time_calendar=self.time_calendar)
         for parameter_name in self.parameter_list:
-            setattr(self, parameter_name, getattr(data, parameter_name))
+            nc_parameter_name = self.parameter_map[parameter_name]
+            setattr(self, parameter_name, getattr(data, nc_parameter_name))
 
 # %% Classes for gridded datasets
 
