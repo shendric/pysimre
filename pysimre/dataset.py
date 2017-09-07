@@ -117,11 +117,12 @@ class OrbitThicknessBaseClass(object):
     def has_timestamp(self):
         return type(self.timestamp) is np.ndarray
 
-    def __str__(self):
-
-
-    def __item__(self, index):
-        return index
+    def __repr__(self):
+        output = "\npySIMRE Orbit Thickness object:\n"
+        output += "%16s: %s\n" % ("dataset_id", self.dataset_id)
+        output += "%16s: %s\n" % ("n_records", self.n_records)
+        output += "%16s: %s" % ("orbit_id", self.orbit)
+        return output
 
 
 class DatasetOrbitCollection(ClassTemplate):
@@ -157,11 +158,11 @@ class DatasetOrbitCollection(ClassTemplate):
     def orbit_id(self):
         return str(self._orbit_id)
 
-    def __str__(self):
+    def __repr__(self):
         msg = "SIMRE orbit dataset collection:\n"
         msg += "       Orbit id : %s\n" % self.orbit_id
         msg += "   Datasets (%s) : %s" % (str(self.n_datasets),
-                                    str(self.dataset_list))
+                                          str(self.dataset_list))
         return msg
 
 
