@@ -62,7 +62,7 @@ class SimreRepository(ClassTemplate):
     @property
     def dataset_ids(self):
         """ dictionary of dataset object """
-        return dict(self._dataset_ids)
+        return self._dataset_ids
 
     @property
     def n_datasets(self):
