@@ -11,6 +11,8 @@ import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 
+from netCDF4 import Dataset, num2date
+
 from dateutil.relativedelta import relativedelta
 import numpy as np
 import os
@@ -28,7 +30,8 @@ def OrbitThicknessDataset(dataset_id, *args, **kwargs):
     class_map = {
             "ucl": "UCLOrbitThickness",
             "nasa_jpl": "NASAJPLOrbitThickness",
-            "awi": "AWIOrbitThickness"}
+            "awi": "AWIOrbitThickness",
+            "ccicdr": "CCICDROrbitThickness"}
     class_name = class_map.get(dataset_id, None)
     if class_name is None:
         msg = "Orbit dataset class not implemented for id: %s"
@@ -419,10 +422,100 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
             self.sea_ice_thickness[i] = sit
 
 
+class CCICDROrbitThickness(OrbitThicknessBaseClass):
+
+    # Metadata
+    dataset_id = "ccicdr"
+
+    # Has the following parameters
+    parameter_list = ["timestamp", "longitude", "latitude",
+                      "sea_ice_thickness", "snow_depth", "snow_density",
+                      "ice_density"]
+
+    time_units = "seconds since 1970-01-01"
+    time_calendar = "standard"
+
+    def __init__(self, filename, **kwargs):
+        super(CCICDROrbitThickness, self).__init__(**kwargs)
+        self.filename = filename
+        self.parse()
+
+    def parse(self):
+        data = ReadNC(self.filename,
+                      convert2datetime=["timestamp"],
+                      time_units=self.time_units,
+                      time_calendar=self.time_calendar)
+        for parameter_name in self.parameter_list:
+            setattr(self, parameter_name, getattr(data, parameter_name))
+
 # %% Classes for gridded datasets
 
 
-# %% General support functions
+# %% General support classes & functions
+
+class ReadNC(object):
+    """ Simple to parse content of netCDF file into a python object
+    with global attributes and variables """
+
+    def __init__(self, filename, verbose=False, autoscale=True,
+                 nan_fill_value=False, time_units="seconds since 1970-01-01",
+                 time_calendar="standard", convert2datetime=[]):
+        self.time_units = time_units
+        self.time_calendar = time_calendar
+        self.convert2datetime = convert2datetime
+        self.parameters = []
+        self.attributes = []
+        self.verbose = verbose
+        self.autoscale = autoscale
+        self.nan_fill_value = nan_fill_value
+        self.filename = filename
+        self.parameters = []
+        self.read_content()
+
+    def read_content(self):
+        self.keys = []
+        f = Dataset(self.filename)
+        f.set_auto_scale(self.autoscale)
+
+        # Get the global attributes
+        for attribute_name in f.ncattrs():
+
+            self.attributes.append(attribute_name)
+            attribute_value = getattr(f, attribute_name)
+
+            # Convert timestamps back to datetime objects
+            if attribute_name in ["start_time", "stop_time"]:
+                attribute_value = num2date(
+                    attribute_value, self.time_units,
+                    calendar=self.time_calendar)
+            setattr(self, attribute_name, attribute_value)
+
+        # Get the variables
+        for key in f.variables.keys():
+            variable = f.variables[key][:]
+
+            try:
+                is_float = variable.dtype in ["float32", "float64"]
+                has_mask = hasattr(variable, "mask")
+            except:
+                is_float, has_mask = False, False
+
+            if self.nan_fill_value and has_mask and is_float:
+                is_fill_value = np.where(variable.mask)
+                variable[is_fill_value] = np.nan
+
+            if key in self.convert2datetime:
+                variable = num2date(
+                    variable, self.time_units,
+                    calendar=self.time_calendar)
+
+            setattr(self, key, variable)
+            self.keys.append(key)
+            self.parameters.append(key)
+            if self.verbose:
+                print key
+        self.parameters = f.variables.keys()
+        f.close()
 
 
 def configuration_file_ordereddict(filename):
