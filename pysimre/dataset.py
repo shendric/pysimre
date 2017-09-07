@@ -104,12 +104,22 @@ class OrbitThicknessBaseClass(object):
             setattr(self, parameter_name, data[indices])
 
     @property
+    def time_range(self):
+        return [self.timestamp[0], self.time_range[-1]]
+
+    @property
     def n_records(self):
         return len(self.longitude)
 
     @property
     def has_timestamp(self):
         return type(self.timestamp) is np.ndarray
+
+    def __str__(self):
+
+
+    def __item__(self, index):
+        return index
 
 
 class DatasetOrbitCollection(ClassTemplate):
