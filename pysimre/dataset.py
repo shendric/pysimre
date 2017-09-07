@@ -213,6 +213,7 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
     # Metadata
     source_id = "awi"
     source_longname = "AWI"
+    config_file_name = "cryosat_seaice_proc_config.json"
 
     # Has the following parameters
     parameter_list = ["timestamp", "longitude", "latitude", "ice_density",
@@ -226,11 +227,11 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
     header_size_bytes = 106
     datagroup_byte_size = 8
 
-    def __init__(self, filename, config_filename, **kwargs):
+    def __init__(self, filename, **kwargs):
 
         super(AWIOrbitThickness, self).__init__(**kwargs)
         self.filename = filename
-        self.file_def = configuration_file_ordereddict(config_filename)
+        self.file_def = configuration_file_ordereddict(self.config_filename)
         self.parse_filename()
         self.parse_content()
         self.construct_data_groups()
@@ -343,6 +344,11 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
             datetime.strftime('%H:%M:%S'),
             datetime.microsecond/1000)
         return datetime_str
+
+    @property
+    def config_filename(self):
+        directory = os.path.split(self.filename)[0]
+        return os.path.join(directory, self.config_file_name)
 
 
 class UCLOrbitThickness(OrbitThicknessBaseClass):
