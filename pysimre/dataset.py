@@ -5,6 +5,8 @@ Created on Wed May 10 11:46:20 2017
 @author: shendric
 """
 
+from pysimre.misc import ClassTemplate
+
 import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
@@ -107,6 +109,33 @@ class OrbitThicknessBaseClass(object):
     @property
     def has_timestamp(self):
         return type(self.timestamp) is np.ndarray
+
+
+class DatasetOrbitCollection(ClassTemplate):
+
+    def __init__(self, orbit_id):
+        super(DatasetOrbitCollection, self).__init__(self.__class__.__name__)
+        self._orbit_id = orbit_id
+        self._n_datasets = 0
+        self._datasets = {}
+
+    def add_dataset(self, dataset_id, filepath):
+        """ Add an orbit thickness dataset to the collection """
+        self._datasets[dataset_id] = OrbitThicknessDataset(
+                dataset_id, filepath, orbit=self.orbit_id)
+
+    def get_dataset(self, dataset_id):
+        """ Returns a OrbitThicknessDataset object for the given dataset_id.
+        (None if dataset_id is not in the collection) """
+        return self._datasets.get(dataset_id, None)
+
+    @property
+    def n_datasets(self):
+        return int(self._n_datasets)
+
+    @property
+    def orbit_id(self):
+        return str(self._orbit_id)
 
 
 class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
