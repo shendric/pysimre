@@ -108,13 +108,18 @@ class SimreDatasetCatalogue(ClassTemplate):
         try:
             self._orbit_filemap = repr_cfg.orbit_id_filemap
         except AttributeError:
-            self.log.info("orbit_id_filemap missing [%s]" % self.dataset_id)
+            self.log.warning("orbit_id_filemap missing [%s]" % self.dataset_id)
             self._orbit_filemap = {}
 
     def has_orbit(self, orbit_id):
         """ Returns true or false, depending on whether a certain
         orbit_id is known in `simre_dataset_config.yaml` """
-        return orbit_id in self.orbit_filemap.keys()
+        return orbit_id in self.orbit_filemap_list
+
+    def filepath_info(self, orbit_id):
+        return (self.dataset_id,
+                os.path.join(self.orbit_data_path,
+                             self.orbit_filemap.get(orbit_id, None)))
 
     @property
     def dataset_id(self):
@@ -130,9 +135,14 @@ class SimreDatasetCatalogue(ClassTemplate):
         return os.path.join(self.path, repo_subfolder)
 
     @property
+    def orbit_filemap_list(self):
+        """ Returns a simple list of all orbit files """
+        return sorted(self.orbit_filemap.keys())
+
+    @property
     def orbit_filemap(self):
         """ Returns a simple list of all orbit files """
-        return list(self._orbit_filemap)
+        return self._orbit_filemap
 
     @property
     def orbit_files(self):
