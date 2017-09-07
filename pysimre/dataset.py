@@ -165,6 +165,11 @@ class DatasetOrbitCollection(ClassTemplate):
                                           str(self.dataset_list))
         return msg
 
+    def __getitem__(self, index):
+        dataset_id = self.dataset_list[index]
+        result = self._datasets[dataset_id]
+        return result
+
 
 class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
 
