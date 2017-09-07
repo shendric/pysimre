@@ -34,6 +34,9 @@ class SimreRepository(ClassTemplate):
         orbit_dataset_list = [
                 ctlg.filepath_info(orbit_id) for ctlg in self.catalogue_list
                 if ctlg.has_orbit(orbit_id)]
+        for dataset_id, filepath in orbit_dataset_list:
+            collection.add_dataset(dataset_id, filepath)
+        return collection
 
     def _create_repo_catalogue(self):
         """ Scan the local repository for data sets and create a catalogue
