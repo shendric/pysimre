@@ -9,6 +9,7 @@ from treedict import TreeDict
 from logbook import Logger, StreamHandler
 import yaml
 import sys
+import os
 
 
 def stdout_logger(name):
@@ -97,3 +98,16 @@ def parse_config_file(filename, output="treedict"):
         return TreeDict.fromdict(content_dict, expand_nested=True)
     else:
         return content_dict
+
+
+def file_basename(filename, fullpath=False):
+    """
+    Returns the filename without file extension of a give filename (or path)
+    """
+    strarr = os.path.split(filename)
+    file_name = strarr[-1]
+    basename = file_name.split(".")[0]
+    if fullpath:
+        basename = os.path.join(strarr[0], basename)
+    # XXX: Sketchy, needs better solution (with access to os documentation)
+    return basename

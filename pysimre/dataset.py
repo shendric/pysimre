@@ -5,7 +5,7 @@ Created on Wed May 10 11:46:20 2017
 @author: shendric
 """
 
-from pysimre.misc import ClassTemplate
+from pysimre.misc import ClassTemplate, file_basename
 
 import warnings
 from collections import defaultdict, OrderedDict
@@ -400,18 +400,6 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
 
 
 # %% General support functions
-
-def file_basename(filename, fullpath=False):
-    """
-    Returns the filename without file extension of a give filename (or path)
-    """
-    strarr = os.path.split(filename)
-    file_name = strarr[-1]
-    basename = file_name.split(".")[0]
-    if fullpath:
-        basename = os.path.join(strarr[0], basename)
-    # XXX: Sketchy, needs better solution (with access to os documentation)
-    return basename
 
 
 def configuration_file_ordereddict(filename):
