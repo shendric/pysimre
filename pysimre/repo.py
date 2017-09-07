@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from pysimre.dataset import DatasetOrbitCollection
 from pysimre.misc import ClassTemplate, parse_config_file
 
 import glob
@@ -27,6 +28,12 @@ class SimreRepository(ClassTemplate):
 
     def get_dataset_catalogue(self, dataset_id):
         return self.dataset_catalogues.get(dataset_id, None)
+
+    def get_orbit_collection(self, orbit_id):
+        collection = DatasetOrbitCollection(orbit_id)
+        orbit_dataset_list = [
+                ctlg.filepath_info(orbit_id) for ctlg in self.catalogue_list
+                if ctlg.has_orbit(orbit_id)]
 
     def _create_repo_catalogue(self):
         """ Scan the local repository for data sets and create a catalogue
@@ -63,6 +70,10 @@ class SimreRepository(ClassTemplate):
     def dataset_catalogues(self):
         return dict(self._dataset_catalogues)
 
+    @property
+    def catalogue_list(self):
+        return [self.dataset_catalogues[dsi] for dsi in self.dataset_ids]
+
 
 class SimreDatasetCatalogue(ClassTemplate):
     """ A catalogue of all files in the SIMRE repository for a given
@@ -78,6 +89,7 @@ class SimreDatasetCatalogue(ClassTemplate):
         self.repo_config.freeze()
         # List all orbit files
         self.query_orbit_files()
+        self.query_orbit_filemap()
 
     def query_orbit_files(self):
         """ Simple list of all files in the dataset repository """
@@ -85,6 +97,21 @@ class SimreDatasetCatalogue(ClassTemplate):
                 self.orbit_data_path,
                 self.repo_config.dataset.orbit.search_pattern)
         self._orbit_files = sorted(glob.glob(search_str))
+
+    def query_orbit_filemap(self):
+        """ Get a dictionary that provides list of filenames for
+        orbit ids (need to be defined in `simre_dataset_config.yaml`)"""
+        repr_cfg = self.repo_config.dataset.orbit
+        try:
+            self._orbit_filemap = repr_cfg.orbit_id_filemap
+        except AttributeError:
+            self.log.info("orbit_id_filemap missing [%s]" % self.dataset_id)
+            self._orbit_filemap = {}
+
+    def has_orbit(self, orbit_id):
+        """ Returns true or false, depending on whether a certain
+        orbit_id is known in `simre_dataset_config.yaml` """
+        return orbit_id in self.orbit_filemap.keys()
 
     @property
     def dataset_id(self):
@@ -98,6 +125,16 @@ class SimreDatasetCatalogue(ClassTemplate):
     def orbit_data_path(self):
         repo_subfolder = self.repo_config.dataset.orbit.subfolder
         return os.path.join(self.path, repo_subfolder)
+
+    @property
+    def orbit_filemap(self):
+        """ Returns a simple list of all orbit files """
+        return list(self._orbit_filemap)
+
+    @property
+    def orbit_files(self):
+        """ Returns a dictionary of all orbit file maps """
+        return dict(self._orbit_files)
 
     @property
     def repo_config_file(self):
