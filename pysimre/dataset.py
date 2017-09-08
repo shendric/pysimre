@@ -130,58 +130,6 @@ class OrbitThicknessBaseClass(object):
         return output
 
 
-class DatasetOrbitCollection(ClassTemplate):
-
-    def __init__(self, orbit_id):
-        super(DatasetOrbitCollection, self).__init__(self.__class__.__name__)
-        self._orbit_id = orbit_id
-        self._datasets = {}
-
-    def add_dataset(self, dataset_id, filepath):
-        """ Add an orbit thickness dataset to the collection """
-        self._datasets[dataset_id] = OrbitThicknessDataset(
-                dataset_id, filepath, orbit=self.orbit_id)
-
-    def get_dataset(self, dataset_id):
-        """ Returns a OrbitThicknessDataset object for the given dataset_id.
-        (None if dataset_id is not in the collection) """
-        return self._datasets.get(dataset_id, None)
-
-    def has_dataset(self, dataset_id):
-        """ Return true of collection has the dataset `dataset_id` """
-        return dataset_id in self.dataset_list
-
-    @property
-    def n_datasets(self):
-        return len(self._datasets.keys())
-
-    @property
-    def dataset_list(self):
-        return sorted(self._datasets.keys())
-
-    @property
-    def orbit_id(self):
-        return str(self._orbit_id)
-
-    @property
-    def time_range(self):
-        """ Returns the full time range of all datasets """
-        time_ranges = np.array([dataset.time_range for dataset in self])
-        return [np.amin(time_ranges[:, 0]), np.amax(time_ranges[:, 1])]
-
-    def __repr__(self):
-        msg = "SIMRE orbit dataset collection:\n"
-        msg += "       Orbit id : %s\n" % self.orbit_id
-        msg += "   Datasets (%s) : %s" % (str(self.n_datasets),
-                                          str(self.dataset_list))
-        return msg
-
-    def __getitem__(self, index):
-        dataset_id = self.dataset_list[index]
-        result = self._datasets[dataset_id]
-        return result
-
-
 class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
 
     # Metatadata
