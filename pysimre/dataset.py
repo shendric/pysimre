@@ -159,6 +159,12 @@ class DatasetOrbitCollection(ClassTemplate):
     def orbit_id(self):
         return str(self._orbit_id)
 
+    @property
+    def time_range(self):
+        """ Returns the full time range of all datasets """
+        time_ranges = np.array([dataset.time_range for dataset in self])
+        return [np.amin(time_ranges[:, 0]), np.amax(time_ranges[:, 1])]
+
     def __repr__(self):
         msg = "SIMRE orbit dataset collection:\n"
         msg += "       Orbit id : %s\n" % self.orbit_id
