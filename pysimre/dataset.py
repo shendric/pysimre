@@ -5,6 +5,7 @@ Created on Wed May 10 11:46:20 2017
 @author: shendric
 """
 
+from pysimre.clocks import UTCTAIConverter
 from pysimre.misc import ClassTemplate, file_basename
 
 import warnings
@@ -387,7 +388,7 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
     # Metadata
     dataset_id = "ucl"
 
-    datum = datetime(1950, 1, 1)
+    epoch = datetime(1950, 1, 1)
 
     # Has the following parameters
     parameter_list = ["time", "longitude", "latitude",
@@ -409,13 +410,16 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
         n_records = len(content)
         self.init_parameter_groups(n_records, self.parameter_list)
 
+        tai2utc = UTCTAIConverter()
+
         # Parse data content
         for i, line in enumerate(content):
             strarr = line.split()
 
             # get timestamp
             days = float(strarr[2])
-            self.time[i] = self.datum + relativedelta(days=days)
+            tai_dt = self.epoch + relativedelta(days=days)
+            self.time[i] = tai2utc.tai2utc(tai_dt)
 
             # geolocation parameters
             self.longitude[i] = float(strarr[4])
@@ -549,10 +553,8 @@ def configuration_file_ordereddict(filename):
 
 
 def leapyear(year):
-    """
-    Returns 1 if the provided year is a leap year, 0 if the provided
-    year is not a leap year.
-    """
+    """ Returns 1 if the provided year is a leap year, 0 if the provided
+    year is not a leap year. """
     if year % 4 == 0:
         if year % 100 == 0:
             if year % 400 == 0:
