@@ -351,17 +351,20 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
     def _get_struct_record_parser(self):
         return "<%gd" % self.n_datagroups
 
-    def _get_datetime(self, timestamp):
-        julday = caldate_1900(timestamp)
-        timestamp = datetime(
-            int(julday["year"]),
-            int(julday["month"]),
-            int(julday["day"]),
-            int(julday["hour"]),
-            int(julday["minute"]),
-            int(julday["second"]),
-            long(julday["msec"]))
-        timestamp = timestamp + timedelta(hours=12)
+    def _get_datetime(self, xjd):
+        year, month, day, hours = daycnv(xjd)
+        timestamp = datetime(year, month, day) + relativedelta(hours=hours)
+
+#        julday = caldate_1900(timestamp)
+#        timestamp = datetime(
+#            int(julday["year"]),
+#            int(julday["month"]),
+#            int(julday["day"]),
+#            int(julday["hour"]),
+#            int(julday["minute"]),
+#            int(julday["second"]),
+#            long(julday["msec"]))
+#        timestamp = timestamp + timedelta(hours=12)
         return timestamp
 
     def _get_datetime_str(self, datetime):
@@ -550,67 +553,3 @@ def configuration_file_ordereddict(filename):
     with open(filename, 'r') as filehandle:
         data = simplejson.load(filehandle, object_pairs_hook=OrderedDict)
     return data
-
-
-def leapyear(year):
-    """ Returns 1 if the provided year is a leap year, 0 if the provided
-    year is not a leap year. """
-    if year % 4 == 0:
-        if year % 100 == 0:
-            if year % 400 == 0:
-                return 1
-            else:
-                return 0
-        else:
-            return 1
-    else:
-        return 0
-
-
-def caldate_1900(Julian):
-    """
-    This is nearly a direct translation of a Matlab script to a Python script
-    for changing a Julian date into a Gregorian date.
-    """
-    from math import *
-
-    JulDay = Julian
-    if (JulDay < 2440000):
-        JulDay = JulDay+2415020+1
-    # This is meant to prevent round-off
-    JulDay = JulDay+5.0e-9
-    # Conversion to a Gregorian date
-    j = floor(JulDay)-1721119
-    jin = 4*j-1
-    y = floor(jin/146097)
-    j = jin-146097*y
-    jin = floor(j/4)
-    jin = 4*jin+3
-    j = floor(jin/1461)
-    d = floor(((jin-1461*j)+4)/4)
-    jin = 5*d-3
-    m = floor(jin/153)
-    d = floor(((jin-153*m)+5)/5)
-    y = y*100+j
-    if m < 10:
-        mo = m+3
-        yr = y
-    else:
-        mo = m-9
-        yr = y+1
-    ivd = (1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366)
-    ivdl = (1, 32, 61, 92, 122, 153, 183, 214, 245, 275, 306, 336, 367)
-    if (leapyear(yr) == 1):
-        yday = ivdl[int(mo-1)]+d-1
-    else:
-        yday = ivd[int(mo-1)]+d-1
-    secs = (JulDay % 1)*24*3600
-    sec = round(secs)
-    hour = floor(sec/3600)
-    min = floor((sec % 3600)/60)
-    sec = round(sec % 60)
-    msec = JulDay*24.0*3600.0
-    msec = (msec-np.floor(msec))*1e6
-    cal = {'year': yr, 'yearday': yday, 'month': mo, 'day': d,
-           'hour': hour, 'minute': min, 'second': sec, "msec": msec}
-    return cal
