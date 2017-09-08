@@ -50,10 +50,10 @@ class SimreRepository(ClassTemplate):
             self.error.add_error("invalid-orbit-id", msg)
             self.error.raise_on_error()
 
-        ctlg_info = self._calval_catalogue[orbit_id]
+        ctlg_info = self._calval_catalogue.orbit_id_map[orbit_id]
         try:
             metadata = ctlg_info.calval_source[source_id]
-        except AttributeError:
+        except KeyError:
             msg = "calval source [%s:%s] not in catalogue" % (
                     orbit_id, source_id)
             self.error.add_error("invalid-source-id", msg)
@@ -62,8 +62,9 @@ class SimreRepository(ClassTemplate):
         # Get filename and create data object
         filepath = self.get_calval_filepath(orbit_id)
         calval_dataset = CalValDataset(
-                metadata.pyclass,
+                ctlg_info.pyclass,
                 filepath,
+                metadata.dataset_id,
                 orbit_id,
                 source_id)
 

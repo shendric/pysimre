@@ -19,8 +19,11 @@ class DatasetOrbitCollection(ClassTemplate):
     def __init__(self, orbit_id):
         super(DatasetOrbitCollection, self).__init__(self.__class__.__name__)
         self._orbit_id = orbit_id
+        # Satellite products
         self._datasets = {}
         self._ensemble = None
+        # Calval dataset
+        self._calval_datasets = {}
 
     def add_dataset(self, dataset_id, filepath):
         """ Add an orbit thickness dataset to the collection """
@@ -46,6 +49,32 @@ class DatasetOrbitCollection(ClassTemplate):
         for dataset in self:
             self._ensemble.add_member(dataset)
         self._ensemble.compute_reference_geolocations()
+
+    def add_calval_dataset(self, calval_datset):
+        self._calval_datasets[calval_datset.dataset_id] = calval_datset
+
+    def has_calval_dataset(self, calval_dataset_id):
+        return calval_dataset_id in self._calval_datasets
+
+    def get_calval_dataset_ensemble(self, calval_dataset_id):
+        """ Returns the cal/val dataaset for a given id for
+        the ensemble item locations """
+
+        # re-use information from satellite product ensemble
+        ensemble_item_size_seconds = self._ensemble.member_size_seconds
+        ref_time = self._ensemble.ref_time
+        ref_lon = self._ensemble.longitude
+        ref_lat = self._ensemble.latitude
+
+        # Create the ensemble object
+        calval_ensemble = OrbitDataEnsemble(
+                self.orbit_id, self.time_range,
+                ensemble_item_size_seconds,
+                ref_time=ref_time, ref_lon=ref_lon, ref_lat=ref_lat)
+
+        # Add the cal/val dataset
+        calval_ensemble.add_member(self._calval_datasets[calval_dataset_id])
+        return calval_ensemble
 
     @property
     def n_datasets(self):
@@ -84,18 +113,25 @@ class DatasetOrbitCollection(ClassTemplate):
 
 class OrbitDataEnsemble(ClassTemplate):
 
-    def __init__(self, orbit_id, time_range, member_size_seconds):
+    def __init__(self, orbit_id, time_range, member_size_seconds,
+                 ref_time=None, ref_lon=None, ref_lat=None):
         super(OrbitDataEnsemble, self).__init__(self.__class__.__name__)
         self._members = {}
         self._orbit_id = orbit_id
         self._time_range = time_range
         self._member_size_seconds = member_size_seconds
-        self._longitude = None
-        self._latitude = None
-        self.create_reference_time()
+        self._longitude = ref_lon
+        self._latitude = ref_lat
+
+        # The reference time can be known (e.g. from earlier datasets)
+        if ref_time is None:
+            self.create_reference_time()
+        else:
+            self._set_ref_time(*ref_time)
 
     def create_reference_time(self):
-        """ Compute time range for each ensemble member """
+        """ Compute time range for each ensemble item """
+
         # prepare input
         tr = self.time_range
         duration = tr[1]-tr[0]
@@ -104,11 +140,14 @@ class OrbitDataEnsemble(ClassTemplate):
         second_deltas = np.arange(0, total_seconds+size, size)
         epoch = datetime(tr[0].year, tr[0].month, tr[0].day, tr[0].hour,
                          tr[0].minute, tr[0].second)
+
         # compute start, center, stop time per ensemble
         n_ensembles = len(second_deltas)-1
         self._time_start = np.full((n_ensembles), epoch)
         self._time_stop = np.full((n_ensembles), epoch)
         self._time_center = np.full((n_ensembles), epoch)
+
+        # Compute reference time for each item along the orbit
         for i in np.arange(n_ensembles):
             self._time_start[i] += relativedelta(seconds=second_deltas[i])
             self._time_stop[i] += relativedelta(seconds=second_deltas[i+1])
@@ -170,6 +209,11 @@ class OrbitDataEnsemble(ClassTemplate):
         self._longitude = np.interp(x, x[valid], self._longitude[valid])
         self._latitude = np.interp(x, x[valid], self._latitude[valid])
 
+    def _set_ref_time(self, t0, tc, t1):
+        self._time_start = t0
+        self._time_center = tc
+        self._time_stop = t1
+
     @property
     def orbit_id(self):
         return str(self._orbit_id)
@@ -210,6 +254,10 @@ class OrbitDataEnsemble(ClassTemplate):
         t0, tc, t1 = self._time_start, self._time_center, self._time_stop
         index_list = np.arange(self.n_ensemble_items)
         return [(t0[i], tc[i], t1[i]) for i in index_list]
+
+    @property
+    def ref_time(self):
+        return [self._time_start, self._time_center, self._time_stop]
 
     @property
     def time(self):

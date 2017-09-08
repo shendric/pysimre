@@ -329,17 +329,6 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
     def _get_datetime(self, xjd):
         year, month, day, hours = daycnv(xjd)
         timestamp = datetime(year, month, day) + relativedelta(hours=hours)
-
-#        julday = caldate_1900(timestamp)
-#        timestamp = datetime(
-#            int(julday["year"]),
-#            int(julday["month"]),
-#            int(julday["day"]),
-#            int(julday["hour"]),
-#            int(julday["minute"]),
-#            int(julday["second"]),
-#            long(julday["msec"]))
-#        timestamp = timestamp + timedelta(hours=12)
         return timestamp
 
     def _get_datetime_str(self, datetime):
@@ -448,8 +437,57 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
 
 # %% Classes for gridded datasets
 
+# %% Classes for cal/val datasets
+
+
+def CalValDataset(class_name, filepath, dataset_id, orbit_id, source_id):
+    """ Returns the native data object for the cal/val dataset """
+    return globals()[class_name](filepath, dataset_id, orbit_id, source_id)
+
+
+class CryoValCSV(OrbitThicknessBaseClass):
+    """ Container for CryoVAL-SI csv datasets """
+
+    parameter_list = ["time", "longitude", "latitude", "sea_ice_thickness"]
+    parameter_map = {"longitude": "Longitude", "latitude": "Latitude"}
+
+    def __init__(self, filepath, dataset_id, orbit_id, source_id):
+        super(CryoValCSV, self).__init__(orbit=orbit_id, track_id=source_id)
+        self.dataset_id = dataset_id
+        self._source_id = source_id
+        self._filename = filepath
+        self._parse()
+
+    def _parse(self):
+        """ Read the csv file and only save time/lon/lat/target thickness """
+
+        # Parse content
+        data = np.genfromtxt(self._filename, delimiter=',', names=True)
+
+        # Init dataset object
+        n_records = np.shape(data)[0]
+        self.init_parameter_groups(n_records, self.parameter_list)
+
+        # Transfer time
+        y, mo, d = data["Year"], data["Month"], data["Day"]
+        h, mi, s = data["Hour"], data["Minute"], data["Second"]
+
+        for i in np.arange(self.n_records):
+            self.time[i] = datetime(
+                    int(y[i]), int(mo[i]), int(d[i]),
+                    int(h[i]), int(mi[i]))
+            self.time[i] += relativedelta(seconds=s[i])
+
+        # Transfer lon/lat
+        for name in ["longitude", "latitude"]:
+            setattr(self, name, data[self.parameter_map[name]])
+
+        # Transfer target thickness
+        self.sea_ice_thickness = data[self._source_id]
+
 
 # %% General support classes & functions
+
 
 class ReadNC(object):
     """ Simple to parse content of netCDF file into a python object
