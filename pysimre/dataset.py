@@ -100,6 +100,10 @@ class OrbitThicknessBaseClass(object):
 
         self.clip_to_indices(indices)
 
+    def wraplons(self):
+        lon_orig = self.longitude
+        self.longitude = np.mod(lon_orig+180., 360.) - 180.
+
     def clip_to_indices(self, indices):
         """ Create a subset of all parameters for the given list of indices """
         for parameter_name in self.parameter_list:
@@ -205,6 +209,7 @@ class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
         self.filename = filename
         self.parse_filename()
         self.parse()
+        self.wraplons()
 
     def parse_filename(self):
         basename = file_basename(self.filename)
@@ -277,6 +282,7 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
         self.parse_filename()
         self.parse_content()
         self.construct_data_groups()
+        self.wraplons()
 
     def parse_filename(self):
         """
@@ -411,6 +417,7 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
         super(UCLOrbitThickness, self).__init__(**kwargs)
         self.filename = filename
         self.parse()
+        self.wraplons()
 
     def parse(self):
         """ Parse data content """
@@ -469,6 +476,7 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
         super(CCICDROrbitThickness, self).__init__(**kwargs)
         self.filename = filename
         self.parse()
+        self.wraplons()
 
     def parse(self):
         data = ReadNC(self.filename,
