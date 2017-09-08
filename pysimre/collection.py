@@ -117,7 +117,7 @@ class OrbitDataEnsemble(ClassTemplate):
 
     def add_member(self, dataset):
         """ Add member to ensemble (must be orbit dataset) """
-        ensemble_items = np.ndarray((self.n_emsemble_items), dtype=object)
+        ensemble_items = np.ndarray((self.n_ensemble_items), dtype=object)
         time_ranges = self.reftime_bounds
         for i, time_range in enumerate(time_ranges):
             parameters = dataset.get_ensemble_items(time_range)
@@ -127,6 +127,19 @@ class OrbitDataEnsemble(ClassTemplate):
     def get_member_mean(self, dataset_id):
         return np.array([m.mean for m in self._members[dataset_id]])
 
+    def get_ensemble_mean(self, n_members_min=2):
+        """ Get the mean of all ensemble member mean values for each
+        ensemble item interval. Must have more than n_members_min ensembles
+        to compute an ensemble mean """
+        ensemble_means = np.full((self.n_ensemble_items), np.nan)
+        dataset_ids = self.dataset_ids
+        indices = np.where(self.n_contributing_members >= n_members_min)[0]
+        for i in indices:
+            member_means = np.array([self._members[dataset_id][i].mean
+                                    for dataset_id in dataset_ids])
+            ensemble_means[i] = np.nanmean(member_means)
+        return ensemble_means
+
     def compute_reference_geolocations(self):
         """ We cannot assume that the datasets are regulary spaced and the
         ensemble items have lat/lon values, or the lat/lon values might not
@@ -135,11 +148,11 @@ class OrbitDataEnsemble(ClassTemplate):
         Interpolation is used for items where no member has data """
 
         # Init
-        self._longitude = np.full((self.n_emsemble_items), np.nan)
-        self._latitude = np.full((self.n_emsemble_items), np.nan)
+        self._longitude = np.full((self.n_ensemble_items), np.nan)
+        self._latitude = np.full((self.n_ensemble_items), np.nan)
 
         # Loop over all items
-        x = np.arange(self.n_emsemble_items)
+        x = np.arange(self.n_ensemble_items)
         for i in x:
             lat_min = np.nanmin([self._members[name][i].lat_min
                                  for name in self.dataset_ids])
@@ -174,7 +187,7 @@ class OrbitDataEnsemble(ClassTemplate):
         return self._member_size_seconds
 
     @property
-    def n_emsemble_items(self):
+    def n_ensemble_items(self):
         return len(self._time_start)
 
     @property
@@ -182,15 +195,26 @@ class OrbitDataEnsemble(ClassTemplate):
         return len(self._members.keys())
 
     @property
+    def n_contributing_members(self):
+        """ Returns an array with the number of datasets contributing
+        to ensemble item """
+        n_contributing_members = np.full((self.n_ensemble_items), 0)
+        for dataset_id in self.dataset_ids:
+            has_data_int = np.array([
+                    int(m.n_points > 0) for m in self._members[dataset_id]])
+            n_contributing_members += has_data_int
+        return n_contributing_members
+
+    @property
     def reftime_bounds(self):
         t0, tc, t1 = self._time_start, self._time_center, self._time_stop
-        index_list = np.arange(self.n_emsemble_items)
+        index_list = np.arange(self.n_ensemble_items)
         return [(t0[i], tc[i], t1[i]) for i in index_list]
 
     @property
     def time(self):
         __, tc, __ = self._time_start, self._time_center, self._time_stop
-        index_list = np.arange(self.n_emsemble_items)
+        index_list = np.arange(self.n_ensemble_items)
         return np.array([tc[i] for i in index_list])
 
     @property
