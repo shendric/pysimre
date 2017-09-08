@@ -5,7 +5,6 @@ Created on Wed May 10 11:46:20 2017
 @author: shendric
 """
 
-from pysimre.clocks import UTCTAIConverter
 from pysimre.clocks import UTCTAIConverter, daycnv
 from pysimre.misc import ClassTemplate, file_basename
 
