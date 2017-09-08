@@ -122,7 +122,8 @@ class OrbitThicknessBaseClass(object):
 
     @property
     def time_range(self):
-        return [self.time[0], self.time[-1]]
+        valid_indices = np.where(np.isfinite(self.sea_ice_thickness))[0]
+        return [self.time[valid_indices[0]], self.time[valid_indices[-1]]]
 
     @property
     def n_records(self):
