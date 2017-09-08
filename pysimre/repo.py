@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from pysimre.dataset import DatasetOrbitCollection
+from pysimre.collection import DatasetOrbitCollection
 from pysimre.misc import ClassTemplate, parse_config_file
 
 import glob
@@ -29,13 +29,14 @@ class SimreRepository(ClassTemplate):
     def get_dataset_catalogue(self, dataset_id):
         return self.dataset_catalogues.get(dataset_id, None)
 
-    def get_orbit_collection(self, orbit_id):
+    def get_orbit_collection(self, orbit_id, ensemble_item_size_seconds=1):
         collection = DatasetOrbitCollection(orbit_id)
         orbit_dataset_list = [
                 ctlg.filepath_info(orbit_id) for ctlg in self.catalogue_list
                 if ctlg.has_orbit(orbit_id)]
         for dataset_id, filepath in orbit_dataset_list:
             collection.add_dataset(dataset_id, filepath)
+        collection.create_orbit_ensemble(ensemble_item_size_seconds)
         return collection
 
     def _create_repo_catalogue(self):

@@ -8,6 +8,7 @@ Created on Wed May 10 11:46:20 2017
 from pysimre.clocks import UTCTAIConverter, daycnv
 from pysimre.misc import ClassTemplate, file_basename
 
+
 import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
@@ -109,6 +110,15 @@ class OrbitThicknessBaseClass(object):
         for parameter_name in self.parameter_list:
             data = getattr(self, parameter_name)
             setattr(self, parameter_name, data[indices])
+
+    def get_ensemble_items(self, time_range):
+        """ Returns points for orbit ensemble statistics """
+        in_ensemble_item = np.logical_and(
+                self.time > time_range[0],
+                self.time <= time_range[2])
+        indices = np.where(in_ensemble_item)[0]
+        return self.longitude[indices], self.latitude[indices], \
+            self.sea_ice_thickness[indices]
 
     @property
     def time_range(self):
