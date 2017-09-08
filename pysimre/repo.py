@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pysimre.collection import DatasetOrbitCollection
+from pysimre.dataset import CalValDataset
 from pysimre.misc import ClassTemplate, parse_config_file
 
 import glob
@@ -15,6 +16,7 @@ class SimreRepository(ClassTemplate):
         super(SimreRepository, self).__init__(self.__class__.__name__)
 
         self._dataset_catalogues = {}
+        self._calval_catalogue = None
 
         # Validity check of local path
         if not os.path.isdir(local_path):
@@ -39,26 +41,111 @@ class SimreRepository(ClassTemplate):
         collection.create_orbit_ensemble(ensemble_item_size_seconds)
         return collection
 
+    def get_calval_dataset(self, orbit_id, source_id):
+        """ Returns a calval dataset object """
+
+        # check calval catalogue
+        if not self.has_calval_orbit(orbit_id):
+            msg = "calval product [%s] not in catalogue" % orbit_id
+            self.error.add_error("invalid-orbit-id", msg)
+            self.error.raise_on_error()
+
+        ctlg_info = self._calval_catalogue[orbit_id]
+        try:
+            metadata = ctlg_info.calval_source[source_id]
+        except AttributeError:
+            msg = "calval source [%s:%s] not in catalogue" % (
+                    orbit_id, source_id)
+            self.error.add_error("invalid-source-id", msg)
+            self.error.raise_on_error()
+
+        # Get filename and create data object
+        filepath = self.get_calval_filepath(orbit_id)
+        calval_dataset = CalValDataset(
+                metadata.pyclass,
+                filepath,
+                orbit_id,
+                source_id)
+
+        return calval_dataset
+
+    def has_calval_orbit(self, orbit_id):
+        """ Tests if calval data for orbit id is known in the catalogue
+        and target file exists """
+
+        # Check for entry in calval config file
+        def branches(t): return list(t.iterkeys(recursive=False,
+                                     branch_mode='only'))
+
+        ctlg = self._calval_catalogue
+        has_orbit_entry = orbit_id in branches(ctlg.orbit_id_map)
+        if not has_orbit_entry:
+            return False
+
+        # Check if file exists
+        calval_filepath = self.get_calval_filepath(orbit_id)
+        has_product_file = os.path.isfile(calval_filepath)
+        if has_product_file:
+            return True
+        else:
+            msg = "Entry for %s exist in calval config, file does not"
+            msg = msg % orbit_id
+            self.log.warning(msg)
+            return False
+
+    def get_calval_filepath(self, orbit_id):
+        ctlg = self._calval_catalogue.orbit_id_map
+        return os.path.join(self.local_calval_path,
+                            ctlg[orbit_id].source_file)
+
     def _create_repo_catalogue(self):
-        """ Scan the local repository for data sets and create a catalogue
+        """ Scan the local repository for datasets (sat_products),
+        ground truth (calval_products) and create a catalogue
         their content """
 
         # Get dataset id's in the local repository
         # XXX: Need to add a check for valid dataset ids
-        result = os.listdir(self.local_path)
-        dataset_ids = [p for p in result
-                       if os.path.isdir(os.path.join(self.local_path, p))]
+        result = os.listdir(self.local_satproduct_path)
+
+        def is_dataset(p): return os.path.isdir(os.path.join(
+                self.local_satproduct_path, p))
+
+        dataset_ids = [p for p in result if is_dataset(p)]
         self._dataset_ids = dataset_ids
 
         # query directories for content
         for dataset_id in dataset_ids:
-            path = os.path.join(self.local_path, dataset_id)
+            path = os.path.join(self.local_satproduct_path, dataset_id)
             dataset_catalogue = SimreDatasetCatalogue(dataset_id, path)
             self._dataset_catalogues[dataset_id] = dataset_catalogue
+
+        # Get a list of the calval product
+        # XXX: At the moment only the contents of calval_product config file
+        self._calval_catalogue = parse_config_file(self.calval_config_filepath)
+        self._calval_catalogue.freeze()
 
     @property
     def local_path(self):
         return str(self._local_path)
+
+    @property
+    def local_satproduct_path(self):
+        return os.path.join(self.local_path, "sat_products")
+
+    @property
+    def local_calval_path(self):
+        return os.path.join(self.local_path, "calval_products")
+
+    @property
+    def calval_config_filepath(self):
+        calval_config_filepath = os.path.join(
+                self.local_calval_path, "simre_calval_products_config.yaml")
+        if not os.path.isfile(calval_config_filepath):
+            msg = "Missing SIMRE calval config file. Expected: %s"
+            msg = msg % str(calval_config_filepath)
+            self.error.add_error("missing-calval-config", msg)
+            self.error.raise_on_error()
+        return calval_config_filepath
 
     @property
     def dataset_ids(self):
