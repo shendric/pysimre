@@ -219,6 +219,8 @@ class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
         n_records = len(content)
         self.init_parameter_groups(n_records, self.parameter_list)
 
+        tai2utc = UTCTAIConverter()
+
         for i, line in enumerate(content):
 
             array = [float(s) for s in line.split()]
@@ -227,8 +229,10 @@ class NASAJPLOrbitThickness(OrbitThicknessBaseClass):
             days = int(array[1])
             seconds = int(array[2])
             musecs = int(1e6*(array[2]-seconds))
-            self.time[i] = datetime(int(array[0]), 1, 1) + \
-                timedelta(days=days, seconds=seconds, microseconds=musecs)
+            tai_dt = datetime(int(array[0]), 1, 1) + \
+                timedelta(days=days-1, seconds=seconds, microseconds=musecs)
+
+            self.time[i] = tai2utc.tai2utc(tai_dt)[0]
 
             # Transfer data
             self.latitude[i] = array[3]
@@ -422,7 +426,7 @@ class UCLOrbitThickness(OrbitThicknessBaseClass):
             # get timestamp
             days = float(strarr[2])
             tai_dt = self.epoch + relativedelta(days=days)
-            self.time[i] = tai2utc.tai2utc(tai_dt)
+            self.time[i] = tai2utc.tai2utc(tai_dt)[0]
 
             # geolocation parameters
             self.longitude[i] = float(strarr[4])
