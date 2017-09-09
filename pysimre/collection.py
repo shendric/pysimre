@@ -18,12 +18,18 @@ class DatasetOrbitCollection(ClassTemplate):
 
     def __init__(self, orbit_id):
         super(DatasetOrbitCollection, self).__init__(self.__class__.__name__)
+
+        # Main identifier
         self._orbit_id = orbit_id
-        # Satellite products
+
+        # Datasets Satellite products
         self._datasets = {}
-        self._ensemble = None
-        # Calval dataset
         self._calval_datasets = {}
+
+        # Ensembles
+        self._orbit_ensemble = None
+        self._calval_ensemble = None
+        self._ensemble_item_size_seconds = None
 
     def add_dataset(self, dataset_id, filepath):
         """ Add an orbit thickness dataset to the collection """
@@ -39,42 +45,48 @@ class DatasetOrbitCollection(ClassTemplate):
         """ Return true of collection has the dataset `dataset_id` """
         return dataset_id in self.dataset_list
 
-    def create_orbit_ensemble(self, ensemble_item_size_seconds):
-        """ Computes time-based ensembles for all products """
-        # Initialize the ensemble
-        self._ensemble = OrbitDataEnsemble(
-                self.orbit_id, self.time_range,
-                ensemble_item_size_seconds)
-        # Add ensemble members (datasets)
-        for dataset in self:
-            self._ensemble.add_member(dataset)
-        self._ensemble.compute_reference_geolocations()
-
     def add_calval_dataset(self, calval_datset):
         self._calval_datasets[calval_datset.dataset_id] = calval_datset
 
     def has_calval_dataset(self, calval_dataset_id):
         return calval_dataset_id in self._calval_datasets
 
-    def get_calval_dataset_ensemble(self, calval_dataset_id):
-        """ Returns the cal/val dataaset for a given id for
-        the ensemble item locations """
+    def create_ensembles(self, ensemble_item_size_seconds):
+        self._ensemble_item_size_seconds = ensemble_item_size_seconds
+        self._create_orbit_ensemble(ensemble_item_size_seconds)
+        self._create_calval_ensemble(ensemble_item_size_seconds)
+
+    def _create_orbit_ensemble(self, ensemble_item_size_seconds):
+        """ Computes time-based ensembles for all products """
+        # Initialize the ensemble
+        self._orbit_ensemble = OrbitDataEnsemble(
+                self.orbit_id, self.time_range,
+                ensemble_item_size_seconds)
+        # Add ensemble members (datasets)
+        for dataset in self:
+            self._orbit_ensemble.add_member(dataset)
+        self._orbit_ensemble.compute_reference_geolocations()
+
+    def _create_calval_ensemble(self, ensemble_item_size_seconds):
+        """Creates a cal/val ensemble for all cal/val datasets.
+        Needs to be called after `create_orbit_ensemble` """
 
         # re-use information from satellite product ensemble
-        ensemble_item_size_seconds = self._ensemble.member_size_seconds
-        ref_time = self._ensemble.ref_time
-        ref_lon = self._ensemble.longitude
-        ref_lat = self._ensemble.latitude
+        ensemble_item_size_seconds = self._orbit_ensemble.member_size_seconds
+        ref_time = self._orbit_ensemble.ref_time
+        ref_lon = self._orbit_ensemble.longitude
+        ref_lat = self._orbit_ensemble.latitude
 
         # Create the ensemble object
-        calval_ensemble = OrbitDataEnsemble(
+        self._calval_ensemble = OrbitDataEnsemble(
                 self.orbit_id, self.time_range,
                 ensemble_item_size_seconds,
                 ref_time=ref_time, ref_lon=ref_lon, ref_lat=ref_lat)
 
-        # Add the cal/val dataset
-        calval_ensemble.add_member(self._calval_datasets[calval_dataset_id])
-        return calval_ensemble
+        # Add cal/val datasets
+        for calval_dataset_id in self.calval_dataset_ids:
+            self._calval_ensemble.add_member(
+                    self._calval_datasets[calval_dataset_id])
 
     @property
     def n_datasets(self):
@@ -89,14 +101,26 @@ class DatasetOrbitCollection(ClassTemplate):
         return str(self._orbit_id)
 
     @property
+    def calval_dataset_ids(self):
+        return sorted(self._calval_datasets.keys())
+
+    @property
     def time_range(self):
         """ Returns the full time range of all datasets """
         time_ranges = np.array([dataset.time_range for dataset in self])
         return [np.amin(time_ranges[:, 0]), np.amax(time_ranges[:, 1])]
 
     @property
-    def ensemble(self):
-        return self._ensemble
+    def orbit_ensemble(self):
+        return self._orbit_ensemble
+
+    @property
+    def calval_ensemble(self):
+        return self._calval_ensemble
+
+    @property
+    def ensemble_item_size(self):
+        return self._ensemble_item_size_seconds
 
     def __repr__(self):
         msg = "SIMRE orbit dataset collection:\n"
@@ -166,6 +190,9 @@ class OrbitDataEnsemble(ClassTemplate):
     def get_member_mean(self, dataset_id):
         return np.array([m.mean for m in self._members[dataset_id]])
 
+    def get_member_sdev(self, dataset_id):
+        return np.array([m.sdev for m in self._members[dataset_id]])
+
     def get_ensemble_mean(self, n_members_min=2):
         """ Get the mean of all ensemble member mean values for each
         ensemble item interval. Must have more than n_members_min ensembles
@@ -178,6 +205,21 @@ class OrbitDataEnsemble(ClassTemplate):
                                     for dataset_id in dataset_ids])
             ensemble_means[i] = np.nanmean(member_means)
         return ensemble_means
+
+    def get_ensemble_minmax(self, n_members_min=2):
+        """ Get the min and max of all ensemble member mean values for each
+        ensemble item interval. Must have more than n_members_min ensembles
+        to compute a result """
+        ensemble_min = np.full((self.n_ensemble_items), np.nan)
+        ensemble_max = np.copy(ensemble_min)
+        dataset_ids = self.dataset_ids
+        indices = np.where(self.n_contributing_members >= n_members_min)[0]
+        for i in indices:
+            member_means = np.array([self._members[dataset_id][i].mean
+                                    for dataset_id in dataset_ids])
+            ensemble_min[i] = np.nanmin(member_means)
+            ensemble_max[i] = np.nanmax(member_means)
+        return ensemble_min, ensemble_max
 
     def compute_reference_geolocations(self):
         """ We cannot assume that the datasets are regulary spaced and the
@@ -305,6 +347,13 @@ class OrbitEnsembleItem(ClassTemplate):
     def max(self):
         try:
             return np.nanmax(self._points)
+        except ValueError:
+            return np.nan
+
+    @property
+    def sdev(self):
+        try:
+            return np.nanstd(self._points)
         except ValueError:
             return np.nan
 

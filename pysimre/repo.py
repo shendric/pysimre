@@ -31,14 +31,13 @@ class SimreRepository(ClassTemplate):
     def get_dataset_catalogue(self, dataset_id):
         return self.dataset_catalogues.get(dataset_id, None)
 
-    def get_orbit_collection(self, orbit_id, ensemble_item_size_seconds=1):
+    def get_orbit_collection(self, orbit_id):
         collection = DatasetOrbitCollection(orbit_id)
         orbit_dataset_list = [
                 ctlg.filepath_info(orbit_id) for ctlg in self.catalogue_list
                 if ctlg.has_orbit(orbit_id)]
         for dataset_id, filepath in orbit_dataset_list:
             collection.add_dataset(dataset_id, filepath)
-        collection.create_orbit_ensemble(ensemble_item_size_seconds)
         return collection
 
     def get_calval_dataset(self, orbit_id, source_id):
@@ -52,8 +51,8 @@ class SimreRepository(ClassTemplate):
 
         ctlg_info = self._calval_catalogue.orbit_id_map[orbit_id]
         try:
-            metadata = ctlg_info.calval_source[source_id]
-        except KeyError:
+            metadata = ctlg_info.source_id[source_id]
+        except AttributeError:
             msg = "calval source [%s:%s] not in catalogue" % (
                     orbit_id, source_id)
             self.error.add_error("invalid-source-id", msg)
@@ -64,11 +63,33 @@ class SimreRepository(ClassTemplate):
         calval_dataset = CalValDataset(
                 ctlg_info.pyclass,
                 filepath,
-                metadata.dataset_id,
+                self.get_calval_dataset_id(orbit_id, source_id),
                 orbit_id,
-                source_id)
+                metadata)
 
         return calval_dataset
+
+    def get_calval_dataset_id(self, orbit_id, source_id):
+        return orbit_id+"_"+source_id
+
+    def get_figure_path(self, dataset_item):
+
+        # Orbit Collection
+        if isinstance(dataset_item, DatasetOrbitCollection):
+            figure_path = os.path.join(
+                    self.local_path,
+                    "figures",
+                    "calval_orbits",
+                    dataset_item.orbit_id)
+            # Create path (if needed)
+            try:
+                os.makedirs(figure_path)
+            except WindowsError:
+                pass
+            return figure_path
+        else:
+            self.log.warning("Unknown dataset type: %s" % type(dataset_item))
+            return None
 
     def has_calval_orbit(self, orbit_id):
         """ Tests if calval data for orbit id is known in the catalogue
@@ -97,7 +118,7 @@ class SimreRepository(ClassTemplate):
     def get_calval_filepath(self, orbit_id):
         ctlg = self._calval_catalogue.orbit_id_map
         return os.path.join(self.local_calval_path,
-                            ctlg[orbit_id].source_file)
+                            ctlg[orbit_id].calval_filename)
 
     def _create_repo_catalogue(self):
         """ Scan the local repository for datasets (sat_products),

@@ -440,9 +440,9 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
 # %% Classes for cal/val datasets
 
 
-def CalValDataset(class_name, filepath, dataset_id, orbit_id, source_id):
+def CalValDataset(class_name, filepath, dataset_id, orbit_id, metadata):
     """ Returns the native data object for the cal/val dataset """
-    return globals()[class_name](filepath, dataset_id, orbit_id, source_id)
+    return globals()[class_name](filepath, dataset_id, orbit_id, metadata)
 
 
 class CryoValCSV(OrbitThicknessBaseClass):
@@ -451,11 +451,14 @@ class CryoValCSV(OrbitThicknessBaseClass):
     parameter_list = ["time", "longitude", "latitude", "sea_ice_thickness"]
     parameter_map = {"longitude": "Longitude", "latitude": "Latitude"}
 
-    def __init__(self, filepath, dataset_id, orbit_id, source_id):
-        super(CryoValCSV, self).__init__(orbit=orbit_id, track_id=source_id)
+    def __init__(self, filepath, dataset_id, orbit_id, metadata):
+        super(CryoValCSV, self).__init__(orbit=orbit_id, track_id=dataset_id)
         self.dataset_id = dataset_id
-        self._source_id = source_id
+        self._parameter_name = metadata.parameter_name
+        self._parameter_target = metadata.parameter_target
         self._filename = filepath
+        self.label = metadata.label
+
         self._parse()
 
     def _parse(self):
@@ -482,8 +485,8 @@ class CryoValCSV(OrbitThicknessBaseClass):
         for name in ["longitude", "latitude"]:
             setattr(self, name, data[self.parameter_map[name]])
 
-        # Transfer target thickness
-        self.sea_ice_thickness = data[self._source_id]
+        # Transfer target parameter
+        setattr(self, self._parameter_target, data[self._parameter_name])
 
 
 # %% General support classes & functions
