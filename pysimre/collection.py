@@ -264,23 +264,6 @@ class OrbitDataEnsemble(ClassTemplate):
             self._longitude[i] = lons[center_index]
             self._latitude[i] = lats[center_index]
 
-#            lat_min = np.nanmin([self._members[name][i].lat_min
-#                                 for name in self.dataset_ids])
-#            lat_max = np.nanmax([self._members[name][i].lat_max
-#                                 for name in self.dataset_ids])
-#
-#            lon_min = np.nanmin([self._members[name][i].lon_min
-#                                 for name in self.dataset_ids])
-#            lon_max = np.nanmax([self._members[name][i].lon_max
-#                                 for name in self.dataset_ids])
-#
-#            # Compute center point by half circle navigation to get around
-#            # longitude wrapping issues
-#            faz, baz, dist = geo_inverse(lon_min, lat_min, lon_max, lat_max)
-#            lon_c, lat_c, baz = geo_forward(lon_min, lat_min, faz, 0.5*dist)
-#            self._longitude[i] = lon_c
-#            self._latitude[i] = lat_c
-
         # Simple assumption that lat/lon will always be valid/invalid as pair
         valid = np.where(np.isfinite(self._longitude))[0]
         self._longitude = np.interp(x, x[valid], self._longitude[valid])
