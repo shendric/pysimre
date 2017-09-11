@@ -146,6 +146,12 @@ class SimreRepository(ClassTemplate):
         self._calval_catalogue = parse_config_file(self.calval_config_filepath)
         self._calval_catalogue.freeze()
 
+    def get_grid_source_dataset(self, dataset_id, region_id, period_id):
+        """ Return gridded data on the SIMRE default grid for a given
+        dataset and period """
+        ctlg = self.dataset_catalogues[dataset_id]
+        filepath = ctlg.get_sourcegrid_filepath(region_id, period_id)
+
     @property
     def local_path(self):
         return str(self._local_path)
@@ -186,6 +192,15 @@ class SimreRepository(ClassTemplate):
     @property
     def catalogue_list(self):
         return [self.dataset_catalogues[dsi] for dsi in self.dataset_ids]
+
+    @property
+    def grid_dataset_ids(self):
+
+        ctlg = self.dataset_catalogues
+
+        def has_grid(dsi): return ctlg[dsi].has_grid_data
+
+        return sorted([dsi for dsi in self.dataset_ids if has_grid(dsi)])
 
 
 class SimreDatasetCatalogue(ClassTemplate):
@@ -231,6 +246,16 @@ class SimreDatasetCatalogue(ClassTemplate):
                 os.path.join(self.orbit_data_path,
                              self.orbit_filemap.get(orbit_id, None)))
 
+    def get_sourcegrid_filepath(self, region_id, period_id):
+        rg_info = self.repo_config.dataset.region
+        subfolders = [rg_info.subfolder]
+        if rg_info.source_data.location == "inplace":
+            subfolders.extend([region_id, period_id])
+        else:
+            subfolders.append(rg_info.location)
+        file_path = os.path.join(self.path, *subfolders)
+        stop
+
     @property
     def dataset_id(self):
         return str(self._dataset_id)
@@ -270,3 +295,7 @@ class SimreDatasetCatalogue(ClassTemplate):
             self.error.add_error("missing-dataset-config", msg)
             self.error.raise_on_error()
         return config_file_path
+
+    @property
+    def has_grid_data(self):
+        return "region" in self.repo_config.dataset

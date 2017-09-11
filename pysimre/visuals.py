@@ -222,8 +222,14 @@ class OrbitCollectionGraph(ClassTemplate):
         self.ax_ensscat.set_ylabel("Ensemble Spread (m)")
 
         # Overview Map
+        cmap = plt.get_cmap("RdYlGn", lut=orbit_ensemble.n_members)
+        alongtrack_args = dict(norm=plt.Normalize(0, orbit_ensemble.n_members),
+                               cmap=cmap)
         lon, lat = orbit_ensemble.longitude, orbit_ensemble.latitude
-        OrbitParameterMap(self.ax_map, lon, lat)
+        OrbitParameterMap(self.ax_map, lon, lat,
+                          zval=orbit_ensemble.n_contributing_members,
+                          alongtrack_args=alongtrack_args)
+        self.ax_map.set_title(self._oc.orbit_id)
 
     def _add_metadata(self):
 
@@ -234,22 +240,13 @@ class OrbitCollectionGraph(ClassTemplate):
         x1 = self.ax_map.get_position().x1
 
         # Orbit ID
-        y = y0 - 0.05
-        plt.annotate("Orbit ID", (x1, y), xycoords="figure fraction",
-                     ha="right")
-        y -= 0.03
-        plt.annotate(self._oc.orbit_id, (x1, y), xycoords="figure fraction",
-                     ha="right", fontsize=14)
-
-        y -= 0.1
-        plt.annotate("Datasets", (x1, y), xycoords="figure fraction",
-                     ha="right")
-        y -= 0.05
+        y = y0 - 0.06
         # Label all datasets
         for dataset_id in orbit_ensemble.dataset_ids:
             color = DATASET_COLOR[dataset_id]
-            plt.annotate(dataset_id, (x1, y), xycoords="figure fraction",
-                         ha="right", color=color, fontsize=20)
+            plt.annotate(dataset_id.replace("_", " "), (x1, y),
+                         xycoords="figure fraction", ha="right",
+                         color=color, fontsize=20)
             y -= 0.04
 
     def _save_to_file(self):
