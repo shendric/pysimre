@@ -193,6 +193,24 @@ class OrbitDataEnsemble(ClassTemplate):
     def get_member_sdev(self, dataset_id):
         return np.array([m.sdev for m in self._members[dataset_id]])
 
+    def get_member_points(self, dataset_id, mode="all"):
+        """ Return the full resolution points for a dataset. Either all
+        points (mode="all", default) or only for data points where all
+        members of data (mode="colocated") """
+        if mode == "all":
+            indices = np.arange(self.n_ensemble_items)
+        elif mode == "colocated":
+            ncm = self.n_contributing_members
+            indices = np.where(ncm == self.n_members)[0]
+        else:
+            msg = "Found %s, must be `all` or `colocated`" % str(mode)
+            self.error.add_error("invalid-member-points-mode", msg)
+            self.error.raise_on_error()
+        points = []
+        for index in indices:
+            points.extend(self._members[dataset_id][index].point_list)
+        return np.array(points)
+
     def get_ensemble_mean(self, n_members_min=2):
         """ Get the mean of all ensemble member mean values for each
         ensemble item interval. Must have more than n_members_min ensembles
