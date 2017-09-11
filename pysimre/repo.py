@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pysimre.collection import DatasetOrbitCollection
-from pysimre.dataset import CalValDataset
+from pysimre.dataset import CalValDataset, GridSourceData
 from pysimre.misc import ClassTemplate, parse_config_file
 
 import glob
@@ -151,6 +151,10 @@ class SimreRepository(ClassTemplate):
         dataset and period """
         ctlg = self.dataset_catalogues[dataset_id]
         filepath = ctlg.get_sourcegrid_filepath(region_id, period_id)
+        pyclass = ctlg.sourcegrid_pyclass
+        grid_source_data = GridSourceData(pyclass, filepath,
+                                          dataset_id, period_id)
+        return grid_source_data
 
     @property
     def local_path(self):
@@ -247,14 +251,40 @@ class SimreDatasetCatalogue(ClassTemplate):
                              self.orbit_filemap.get(orbit_id, None)))
 
     def get_sourcegrid_filepath(self, region_id, period_id):
+        """ Return the path to local source grid files """
         rg_info = self.repo_config.dataset.region
-        subfolders = [rg_info.subfolder]
+        try:
+            subfolders = [rg_info.subfolder]
+        except AttributeError:
+            msg = "expected %s in %s" % (
+                    "root.dataset.region.subfolder",
+                    self.repo_config_file)
+            self.error.add_error("simre-config-error", msg)
+            self.error.raise_on_error()
         if rg_info.source_data.location == "inplace":
             subfolders.extend([region_id, period_id])
         else:
-            subfolders.append(rg_info.location)
+            try:
+                subfolders.append(rg_info.source_data.location)
+            except AttributeError:
+                msg = "expected %s in %s" % (
+                        "root.dataset.region.source_data.location",
+                        self.repo_config_file)
+                self.error.add_error("simre-config-error", msg)
+                self.error.raise_on_error()
+
+        # Directory of data
         file_path = os.path.join(self.path, *subfolders)
-        stop
+
+        # Get link to source file(s)
+        try:
+            period_key = "period_"+period_id.replace("-", "_")
+            files = rg_info.source_data.file_map[period_key]
+            return os.path.join(file_path, files)
+        except KeyError:
+            return None
+
+        return file_path
 
     @property
     def dataset_id(self):
@@ -299,3 +329,7 @@ class SimreDatasetCatalogue(ClassTemplate):
     @property
     def has_grid_data(self):
         return "region" in self.repo_config.dataset
+
+    @property
+    def sourcegrid_pyclass(self):
+        return self.repo_config.dataset.region.source_data.pyclass
