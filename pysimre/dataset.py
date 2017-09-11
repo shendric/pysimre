@@ -7,7 +7,7 @@ Created on Wed May 10 11:46:20 2017
 
 from pysimre.clocks import UTCTAIConverter, daycnv
 from pysimre.misc import ClassTemplate, file_basename
-from pysimre.proj import get_target_grid, TARGET_AREA_DEF
+from pysimre.proj import get_target_grid, get_region_def, TARGET_AREA_DEF
 
 from pyresample import image, geometry
 
@@ -467,6 +467,12 @@ class SourceGridBaseClass(ClassTemplate):
         self.latitude = lat
         self.thickness = None
 
+    def extract_test_region(self, region_id):
+        """ Returns a data object for a given region """
+        region_data = RegionGrid(region_id)
+        region_data.from_source_grid(self)
+        return region_data
+
     def resample_to_target_grid(self):
         """ Use pyresample for nearest neighbour resampling """
 
@@ -481,13 +487,152 @@ class SourceGridBaseClass(ClassTemplate):
         data_ease2[np.where(data_ease2.mask)] = np.nan
         self.thickness = data_ease2
 
+    @property
+    def source_filename(self):
+        if isinstance(self.filename, list):
+            return [os.path.split(f)[-1] for f in self.filename]
+        else:
+            return os.path.split(self.filename)[-1]
+
+
 class RegionGrid(ClassTemplate):
 
-    def __init__(self, source_grid, region_id):
+    def __init__(self, region_id):
         super(RegionGrid, self).__init__(self.__class__.__name__)
-        self._source_grid = source_grid
         self._region_id = region_id
+        self._dataset_id = None
+        self._period_id = None
+
+    def from_source_grid(self, source_grid):
+        """ Extract region data from source grid
+        (needs to be reference grid) """
+        self._source_grid = source_grid
+        self._dataset_id = source_grid.dataset_id
+        self._period_id = source_grid.period_id
+        self._source_filename = source_grid.source_filename
         self.crop_to_region()
+
+    def crop_to_region(self):
+        """ Get the subset from the source grid """
+
+        # Get the definition
+        region_def = get_region_def(self.region_id)
+
+        # Get indices in source grid that match region
+        source = self._source_grid
+        in_lon_range = np.logical_and(
+                source.longitude >= region_def.longitude_limits[0],
+                source.longitude <= region_def.longitude_limits[1])
+        in_lat_range = np.logical_and(
+                source.latitude >= region_def.latitude_limits[0],
+                source.latitude <= region_def.latitude_limits[1])
+        in_region = np.logical_and(in_lon_range, in_lat_range)
+        region_indices = np.where(in_region)
+        outside_indices = np.where(np.logical_not(in_region))
+
+        # Get indices ranges
+        i0, i1 = np.amin(region_indices[0]), np.amax(region_indices[0])
+        j0, j1 = np.amin(region_indices[1]), np.amax(region_indices[1])
+
+        # Extract longitude/latitude/thickness for region subset
+        region_longitude = np.copy(source.longitude)
+        region_longitude = region_longitude[i0:i1, j0:j1]
+
+        region_latitude = np.copy(source.latitude)
+        region_latitude = region_latitude[i0:i1, j0:j1]
+
+        region_thickness = np.copy(source.thickness)
+        region_thickness[outside_indices] = np.nan
+        region_thickness = region_thickness[i0:i1, j0:j1]
+
+        # Set to object
+        self.longitude = region_longitude
+        self.latitude = region_latitude
+        self.thickness = region_thickness
+
+    def write_to_netcdf(self, output_filepath):
+        """ Writes region data to netcdf. Automatically creates path
+        and filename by default. """
+
+        # Get metadata
+        shape = np.shape(self.longitude)
+        dimdict = OrderedDict([("lat", shape[0]), ("lon", shape[1])])
+        if self.source_filename is list:
+            source_filename = ", ".join(self.source_filename)
+        else:
+            source_filename = self.source_filename
+
+        lons, lats = self.longitude, self.latitude
+
+        # Open the file
+        rootgrp = Dataset(output_filepath, "w")
+
+        # Write Global Attributes
+        rootgrp.setncattr("title", "Regional Data for Sea Ice Mass " +
+                          "Reconciliation Exercise (SIMRE)")
+        rootgrp.setncattr("procect", "Arctic+ Theme 2: Sea Ice Mass")
+        rootgrp.setncattr("source", source_filename)
+        rootgrp.setncattr("dataset_id", self.dataset_id)
+        rootgrp.setncattr("region_id", self.region_id)
+        rootgrp.setncattr("period_id", self.period_id)
+        rootgrp.setncattr("summary", "TBD")
+        rootgrp.setncattr("creator_name", "TBD")
+        rootgrp.setncattr("creator_url", "TBD")
+        rootgrp.setncattr("creator_email", "TBD")
+        rootgrp.setncattr("contributor_name", "TBD")
+        rootgrp.setncattr("contributor_role", "TBD")
+
+        # Write dimensions
+        dims = dimdict.keys()
+        for key in dims:
+            rootgrp.createDimension(key, dimdict[key])
+
+        # Write Variables
+        dim = tuple(dims[0:len(lons.shape)])
+        dtype_str = lons.dtype.str
+        varlon = rootgrp.createVariable("longitude", dtype_str, dim, zlib=True)
+        setattr(varlon, "long_name", "longitude of grid cell center")
+        setattr(varlon, "standard_name", "longitude")
+        setattr(varlon, "units", "degrees")
+        setattr(varlon, "scale_factor", 1.0)
+        setattr(varlon, "add_offset", 0.0)
+        varlon[:] = lons
+
+        varlat = rootgrp.createVariable("latitude", dtype_str, dim, zlib=True)
+        setattr(varlat, "long_name", "latitude of grid cell center")
+        setattr(varlat, "standard_name", "latitude")
+        setattr(varlat, "units", "degrees")
+        setattr(varlat, "scale_factor", 1.0)
+        setattr(varlat, "add_offset", 0.0)
+        varlat[:] = lats
+
+        varsit = rootgrp.createVariable("sea_ice_thickness",
+                                        dtype_str, dim, zlib=True)
+        setattr(varsit, "long_name", "thickness of the sea ice layer")
+        setattr(varsit, "standard_name",  "sea_ice_thickness")
+        setattr(varsit, "units", "meters")
+        setattr(varsit, "scale_factor", 1.0)
+        setattr(varsit, "add_offset", 0.0)
+        varsit[:] = self.thickness
+
+        # Close the file
+        rootgrp.close()
+
+    @property
+    def region_id(self):
+        return str(self._region_id)
+
+    @property
+    def dataset_id(self):
+        return str(self._dataset_id)
+
+    @property
+    def period_id(self):
+        return str(self._period_id)
+
+    @property
+    def source_filename(self):
+        return str(self._source_filename)
 
 
 class AWIGridThickness(SourceGridBaseClass):
@@ -507,9 +652,95 @@ class AWIGridThickness(SourceGridBaseClass):
         self.resample_to_target_grid()
 
     def read_nc(self):
-
         data = ReadNC(self.filename)
-        self.source_thickness = data.sea_ice_thickness
+        self.source_thickness = np.flipud(data.sea_ice_thickness)
+
+
+class CCICDRGridThickness(SourceGridBaseClass):
+
+    def __init__(self, *args):
+        super(CCICDRGridThickness, self).__init__(*args)
+        self.read_nc()
+
+    def read_nc(self):
+        data = ReadNC(self.filename)
+        self.source_thickness = data.sea_ice_thickness[0, :, :]
+        self.thickness = data.sea_ice_thickness[0, :, :]
+
+
+class CS2SMOSGridThickness(SourceGridBaseClass):
+
+    # Area definition for pyresample
+    source_areadef = geometry.AreaDefinition(
+        'ease2', 'NSIDC North Polar Stereographic (25km)',
+        'ease2',
+        {'lat_0': '90.00', 'lat_ts': '70.00',
+         'lon_0': '0.00', 'proj': 'laea'},
+        720, 720,
+        [-9000000., -9000000., 9000000., 9000000.])
+
+    def __init__(self, *args):
+        super(CS2SMOSGridThickness, self).__init__(*args)
+        self.read_nc()
+        self.resample_to_target_grid()
+
+    def read_nc(self):
+        thickness_grids = []
+        n_files = len(self.filename)
+        for filename in self.filename:
+            data = ReadNC(filename)
+            thickness_grids.append(data.analysis_thickness)
+
+        average_thickness = thickness_grids[0]
+        for i in np.arange(1, n_files):
+            average_thickness += thickness_grids[i]
+        average_thickness /= np.float(n_files)
+        self.source_thickness = np.flipud(average_thickness)
+
+
+class LEGOSGridThickness(SourceGridBaseClass):
+
+        # Area definition for pyresample
+    source_areadef = geometry.AreaDefinition(
+        'ease2', 'NSIDC North Polar Stereographic (12.5km)',
+        'ease2',
+        {'lat_0': '90.00', 'lat_ts': '70.00',
+         'lon_0': '0.00', 'proj': 'laea'},
+        722, 722,
+        [-4512500., -4512500., 4512500., 4512500.])
+
+    def __init__(self, *args):
+        super(LEGOSGridThickness, self).__init__(*args)
+        self.read_nc()
+        self.resample_to_target_grid()
+
+    def read_nc(self):
+        data = ReadNC(self.filename)
+        self.source_thickness = np.flipud(data.sea_ice_thickness)
+
+
+class NasaGSFCGridThickness(SourceGridBaseClass):
+
+        # Area definition for pyresample
+    source_areadef = geometry.AreaDefinition(
+        'nsidc_npstere', 'NSIDC North Polar Stereographic (25km)',
+        'nsidc_npstere',
+        {'lat_0': '90.00', 'lat_ts': '70.00',
+         'lon_0': '-45.00', 'proj': 'stere'},
+        304, 448,
+        [-3850000.0, -5350000.0, 3750000.0, 5850000.0])
+
+    def __init__(self, *args):
+        super(NasaGSFCGridThickness, self).__init__(*args)
+        self.read_nc()
+        self.resample_to_target_grid()
+
+    def read_nc(self):
+        data = ReadNC(self.filename)
+
+        sit = data.sea_ice_thickness
+        sit[np.where(sit < -999.)] = np.nan
+        self.source_thickness = sit
 
 
 # %% Classes for cal/val datasets
