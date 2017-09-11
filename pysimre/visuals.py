@@ -20,17 +20,129 @@ import matplotlib.gridspec as gridspec
 from mpl_toolkits.basemap import Basemap
 from matplotlib.mlab import poly_between
 import matplotlib.patheffects as path_effects
-
+from matplotlib.collections import LineCollection
+from matplotlib import markers
+from matplotlib.path import Path
 
 DATASET_COLOR = {"awi": "#00ace5",
                  "ucl": "#000000",
                  "ccicdr": "#00dc6e",
-                 "nasa_jpl":"#ff0e0e"}
+                 "nasa_jpl": "#ff0e0e"}
 
 DATASET_MARKER = {"awi": "D",
                   "ucl": "s",
                   "ccicdr": "o",
-                  "nasa_jpl":"H"}
+                  "nasa_jpl": "H"}
+
+
+class OrbitCollectionHists(ClassTemplate):
+    """ A figure summarizin the thickness histograms for all/colocated
+    ensemble points """
+
+    bg_color_fig = "0.96"
+    bg_color_ax = "0.96"
+
+    def __init__(self, orbit_collection, output_path):
+
+        super(OrbitCollectionHists, self).__init__(self.__class__.__name__)
+
+        # Save input parameter
+        self._oc = orbit_collection
+        self._output_path = output_path
+
+        plt.ioff()
+        self._create_figure()
+        self._populate_subplots()
+        self._add_metadata()
+        self._save_to_file()
+
+    def _create_figure(self):
+
+        # Create figure
+        self.fig = plt.figure(figsize=(12, 5))
+        panels = (1, 3)
+
+        self.ax_hist_all = plt.subplot2grid(panels, (0, 0))
+        self.ax_hist_all.set_zorder(100)
+        self.ax_hist_col = plt.subplot2grid(panels, (0, 1))
+        self.ax_hist_col.set_zorder(100)
+        self.ax_map = plt.subplot2grid(panels, (0, 2))
+        self.ax_map.set_zorder(100)
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.80, bottom=0.15,
+                            wspace=0.35, hspace=0.25)
+
+        # Highlight graphs
+        bbox_ens = self.ax_hist_col.get_position()
+        bbox_map = self.ax_map.get_position()
+        x1 = 0.5*(bbox_ens.x1+bbox_map.x0)
+        bg = self.fig.add_axes([0, 0, x1, 1])
+        bg.xaxis.set_visible(False)
+        bg.yaxis.set_visible(False)
+        bg.set_zorder(5)
+        bg.patch.set_color(self.bg_color_fig)
+        for target in ["left", "right", "bottom", "top"]:
+            bg.spines[target].set_visible(False)
+
+    def _populate_subplots(self):
+
+        # Plot the satellite product ensembles
+        orbit_ensemble = self._oc.orbit_ensemble
+
+        # Create a graphical representation of the sat & cal/val ensembles
+        OrbitEnsembleHist(self.ax_hist_all, self._oc, mode="all", means=True)
+        set_axes_style(self.fig, self.ax_hist_all, bg_color=self.bg_color_ax,
+                       remove_yaxis=True)
+        self.ax_hist_all.set_xlabel("Sea Ice Thickness (m)")
+        self.ax_hist_all.set_title("All Datapoints")
+
+        # Create a graphical representation of the sat & cal/val ensembles
+        OrbitEnsembleHist(self.ax_hist_col, self._oc, mode="colocated",
+                          means=True)
+        set_axes_style(self.fig, self.ax_hist_col, bg_color=self.bg_color_ax,
+                       remove_yaxis=True)
+        self.ax_hist_col.set_xlabel("Sea Ice Thickness (m)")
+        self.ax_hist_col.set_title("Colocated Datapoints")
+
+        # Overview Map
+        cmap = plt.get_cmap("RdYlGn", lut=orbit_ensemble.n_members)
+        alongtrack_args = dict(norm=plt.Normalize(0, orbit_ensemble.n_members),
+                               cmap=cmap)
+        lon, lat = orbit_ensemble.longitude, orbit_ensemble.latitude
+        colorbar = dict(ticks=np.arange(0, orbit_ensemble.n_members+1),
+                        label="Number Ensemble Member")
+        OrbitParameterMap(self.ax_map, lon, lat,
+                          zval=orbit_ensemble.n_contributing_members,
+                          alongtrack_args=alongtrack_args,
+                          colorbar=colorbar)
+        self.ax_map.set_title(self._oc.orbit_id)
+
+    def _add_metadata(self):
+
+        orbit_ensemble = self._oc.orbit_ensemble
+
+        # get right limit
+        x0 = self.ax_hist_all.get_position().x0
+        x1 = self.ax_hist_col.get_position().x1
+
+        x_pad = 0.1*(x1-x0)
+        label_x0 = x0+x_pad
+        label_x1 = x1-x_pad
+
+        label_x = np.linspace(label_x0, label_x1, orbit_ensemble.n_members)
+        for i, dataset_id in enumerate(orbit_ensemble.dataset_ids):
+            color = DATASET_COLOR[dataset_id]
+            plt.annotate(dataset_id.replace("_", " "), (label_x[i], 0.91),
+                         xycoords="figure fraction",
+                         ha="center", color=color, fontsize=16)
+
+    def _save_to_file(self):
+        plt.savefig(self.output_filename, dpi=300)
+
+    @property
+    def output_filename(self):
+        filename = "OC_%03g_%s_hists.png"
+        filename = filename % (self._oc.ensemble_item_size, self._oc.orbit_id)
+        return os.path.join(self._output_path, filename)
 
 
 class OrbitCollectionGraph(ClassTemplate):
@@ -378,6 +490,61 @@ class OrbitEnsembleResidualHist(object):
         return dict(alpha=0.5, zorder=200, lw=0.5)
 
 
+class OrbitEnsembleHist(object):
+
+    def __init__(self, ax, orbit_collection, mode="all", means=True):
+
+        orbit_ensemble = orbit_collection.orbit_ensemble
+
+        bins = np.arange(-1.1, 10.1, 0.2)
+
+        max_freq_value = []
+
+        # Plot all datasets
+        for dataset_id in orbit_ensemble.dataset_ids:
+
+            color = DATASET_COLOR[dataset_id]
+
+            # Get statistics for each dataset
+            points = orbit_ensemble.get_member_points(dataset_id, mode=mode)
+            is_valid = np.where(np.isfinite(points))[0]
+            n, bins, patches = ax.hist(points[is_valid], bins, facecolor=color,
+                    normed=True, **self.hist_props1)
+            ax.hist(points[is_valid], bins, color=color,
+                    histtype='step', normed=True, **self.hist_props2)
+
+            max_freq_value.append(np.amax(n))
+
+        # Typical thickness range
+        ax.set_xlim(-1, 8)
+
+        # Frequency range
+        max_freq = np.nanmax(max_freq_value)
+        minval = 0
+        maxval = 1.2*max_freq
+        ax.set_ylim(minval, maxval)
+
+        if means:
+            # Plot all datasets
+            for id in orbit_ensemble.dataset_ids:
+                color = DATASET_COLOR[id]
+                # Get statistics for each dataset
+                points = orbit_ensemble.get_member_points(id, mode=mode)
+                meanval = np.nanmean(points)
+                ax.scatter(meanval, 1.01*max_freq,
+                           marker=align_marker('v', valign='bottom'),
+                           s=240, lw=0.75, color=color,
+                           facecolors="none", alpha=0.75)
+
+    @property
+    def hist_props1(self):
+        return dict(alpha=0.1, zorder=200, edgecolor="none")
+
+    @property
+    def hist_props2(self):
+        return dict(alpha=0.5, zorder=200, lw=0.5)
+
+
 class OrbitEnsembleScatterGraph(object):
 
     def __init__(self, ax, orbit_collection):
@@ -404,7 +571,8 @@ class OrbitEnsembleScatterGraph(object):
 
 class OrbitParameterMap(object):
 
-    def __init__(self, ax, lons, lats, basemap_args=None):
+    def __init__(self, ax, lons, lats, basemap_args=None,
+                 zval=None, alongtrack_args=None, colorbar=None):
         """ Generate a simple map with orbit location """
 
         grid = {
@@ -437,7 +605,26 @@ class OrbitParameterMap(object):
             meridians, keyw = self._get_meridians(grid, type)
             m.drawmeridians(meridians, **keyw)
         px, py = m(lons, lats)
-        m.scatter(px, py, marker=".", zorder=200)
+
+        if zval is not None:
+            points = np.array([px, py]).T.reshape(-1, 1, 2)
+            segments = np.concatenate([points[:-1], points[1:]], axis=1)
+            lc = LineCollection(segments, **alongtrack_args)
+            lc.set_array(zval)
+            lc.set_linewidth(3)
+            lc.set_zorder(200)
+            ax.add_collection(lc)
+        else:
+            m.scatter(px, py, marker=".", zorder=200)
+
+
+        if zval is not None and colorbar is not None:
+            cb = plt.colorbar(lc, ax=ax, shrink=0.7, aspect=15,
+                              drawedges=False, orientation="horizontal",
+                              **colorbar)
+            # cb.solids.set_visible(False)
+
+
         #plt.title(label, loc="left")
 
         # return basemap_args
@@ -485,14 +672,21 @@ class OrbitParameterMap(object):
 
 
 def set_axes_style(f, ax, bg_color=None, spines_to_remove=["top", "right"],
-                   axes_pad=-0.03):
+                   axes_pad=-0.03, remove_yaxis=False):
 
     if bg_color is not None:
         ax.patch.set_color(bg_color)
 
+    if remove_yaxis:
+        ax.yaxis.set_visible(False)
+        spines_to_remove.extend(["left", "right"])
+        spines_to_remove = np.unique(spines_to_remove)
+
     # Remove missor axis
     for spine in spines_to_remove:
         ax.spines[spine].set_visible(False)
+
+
 
 #    cl = plt.getp(ax, 'xmajorticklabels')
 #    plt.setp(cl, **self.monthfontprops)
@@ -549,3 +743,67 @@ def get_basemap_args_from_positions(longitude, latitude,
                       'resolution': res}
 
     return basemap_kwargs
+
+
+def align_marker(marker, halign='center', valign='middle',):
+    """
+    create markers with specified alignment.
+
+    Parameters
+    ----------
+
+    marker : a valid marker specification.
+      See mpl.markers
+
+    halign : string, float {'left', 'center', 'right'}
+      Specifies the horizontal alignment of the marker. *float* values
+      specify the alignment in units of the markersize/2 (0 is 'center',
+      -1 is 'right', 1 is 'left').
+
+    valign : string, float {'top', 'middle', 'bottom'}
+      Specifies the vertical alignment of the marker. *float* values
+      specify the alignment in units of the markersize/2 (0 is 'middle',
+      -1 is 'top', 1 is 'bottom').
+
+    Returns
+    -------
+
+    marker_array : numpy.ndarray
+      A Nx2 array that specifies the marker path relative to the
+      plot target point at (0, 0).
+
+    Notes
+    -----
+    The mark_array can be passed directly to ax.plot and ax.scatter, e.g.::
+
+        ax.plot(1, 1, marker=align_marker('>', 'left'))
+
+    """
+
+    if isinstance(halign, (str, unicode)):
+        halign = {'right': -1.,
+                  'middle': 0.,
+                  'center': 0.,
+                  'left': 1.,
+                  }[halign]
+
+    if isinstance(valign, (str, unicode)):
+        valign = {'top': -1.,
+                  'middle': 0.,
+                  'center': 0.,
+                  'bottom': 1.,
+                  }[valign]
+
+    # Define the base marker
+    bm = markers.MarkerStyle(marker)
+
+    # Get the marker path and apply the marker transform to get the
+    # actual marker vertices (they should all be in a unit-square
+    # centered at (0, 0))
+    m_arr = bm.get_path().transformed(bm.get_transform()).vertices
+
+    # Shift the marker vertices for the specified alignment.
+    m_arr[:, 0] += halign / 2
+    m_arr[:, 1] += valign / 2
+
+    return Path(m_arr, bm.get_path().codes)
