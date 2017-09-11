@@ -35,6 +35,18 @@ def get_target_grid():
     return grid.get_grid_coordinates()
 
 
+def get_region_def(region_id):
+    """ Returns the definition of the regions, e.g. lon/lat limits, labels.
+    (Taken from resources/test_region_definition.yaml) """
+    config_path = os.path.join(LOCAL_PATH_RESOURCES,
+                               "test_region_definition.yaml")
+    region_config = parse_config_file(config_path)
+    try:
+        return region_config[region_id]
+    except KeyError():
+        return None
+
+
 class DefaultGridDefinition(ClassTemplate):
     """ A container class for geospatial grids.  The main components are
     a) the projection (based on pyproj) and b) the extent and grid size.
