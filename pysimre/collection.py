@@ -287,6 +287,10 @@ class OrbitDataEnsemble(ClassTemplate):
         return sorted(self._members.keys())
 
     @property
+    def dataset_labels(self):
+        return [id.replace("_", " ") for id in self.dataset_ids]
+
+    @property
     def member_size_seconds(self):
         return self._member_size_seconds
 
