@@ -81,15 +81,23 @@ class SimreRepository(ClassTemplate):
                     "figures",
                     "calval_orbits",
                     dataset_item.orbit_id)
-            # Create path (if needed)
-            try:
-                os.makedirs(figure_path)
-            except WindowsError:
-                pass
-            return figure_path
         else:
             self.log.warning("Unknown dataset type: %s" % type(dataset_item))
             return None
+
+        # Create path (if needed)
+        try:
+            os.makedirs(figure_path)
+        except WindowsError:
+            pass
+        return figure_path
+
+    def get_simre_grid_path(self, region_data):
+        """ Get the full path for a SIMRE region grid """
+        ctlg = self.dataset_catalogues[region_data.dataset_id]
+        ids = [region_data.dataset_id, region_data.region_id,
+               region_data.period_id]
+        return ctlg.get_simre_grid_filepath(*ids)
 
     def has_calval_orbit(self, orbit_id):
         """ Tests if calval data for orbit id is known in the catalogue
@@ -280,11 +288,22 @@ class SimreDatasetCatalogue(ClassTemplate):
         try:
             period_key = "period_"+period_id.replace("-", "_")
             files = rg_info.source_data.file_map[period_key]
-            return os.path.join(file_path, files)
+            if isinstance(files, list):
+                return [os.path.join(file_path, f) for f in files]
+            else:
+                return os.path.join(file_path, files)
         except KeyError:
             return None
 
         return file_path
+
+    def get_simre_grid_filepath(self, dataset_id, region_id, period_id):
+        rg_info = self.repo_config.dataset.region
+        subfolders = [rg_info.subfolder,
+                      region_id, period_id]
+        directory = os.path.join(self.path, *subfolders)
+        filename = "SIMRE-%s-%s-%s.nc" % (dataset_id, region_id, period_id)
+        return os.path.join(directory, filename)
 
     @property
     def dataset_id(self):
