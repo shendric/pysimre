@@ -235,16 +235,33 @@ class OrbitDataEnsemble(ClassTemplate):
         # Loop over all items
         x = np.arange(self.n_ensemble_items)
         for i in x:
-            lat_min = np.nanmin([self._members[name][i].lat_min
-                                 for name in self.dataset_ids])
-            lat_max = np.nanmax([self._members[name][i].lat_max
-                                 for name in self.dataset_ids])
-            lon_min = np.nanmin([self._members[name][i].lon_min
-                                 for name in self.dataset_ids])
-            lon_max = np.nanmax([self._members[name][i].lon_max
-                                 for name in self.dataset_ids])
-            self._longitude[i] = 0.5*(lon_max-lon_min)+lon_min
-            self._latitude[i] = 0.5*(lat_max-lat_min)+lat_min
+
+            lats = np.concatenate([self._members[name][i].lats
+                                  for name in self.dataset_ids])
+            lons = np.concatenate([self._members[name][i].lons
+                                  for name in self.dataset_ids])
+
+            # Get index of median of latitude value ()
+            center_index = np.argsort(lats)[len(lats)//2]
+            self._longitude[i] = lons[center_index]
+            self._latitude[i] = lats[center_index]
+
+#            lat_min = np.nanmin([self._members[name][i].lat_min
+#                                 for name in self.dataset_ids])
+#            lat_max = np.nanmax([self._members[name][i].lat_max
+#                                 for name in self.dataset_ids])
+#
+#            lon_min = np.nanmin([self._members[name][i].lon_min
+#                                 for name in self.dataset_ids])
+#            lon_max = np.nanmax([self._members[name][i].lon_max
+#                                 for name in self.dataset_ids])
+#
+#            # Compute center point by half circle navigation to get around
+#            # longitude wrapping issues
+#            faz, baz, dist = geo_inverse(lon_min, lat_min, lon_max, lat_max)
+#            lon_c, lat_c, baz = geo_forward(lon_min, lat_min, faz, 0.5*dist)
+#            self._longitude[i] = lon_c
+#            self._latitude[i] = lat_c
 
         # Simple assumption that lat/lon will always be valid/invalid as pair
         valid = np.where(np.isfinite(self._longitude))[0]
@@ -360,6 +377,14 @@ class OrbitEnsembleItem(ClassTemplate):
     @property
     def point_list(self):
         return list(self._points)
+
+    @property
+    def lats(self):
+        return self._lats
+
+    @property
+    def lons(self):
+        return self._lons
 
     @property
     def lat_min(self):
