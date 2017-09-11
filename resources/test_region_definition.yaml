@@ -1,0 +1,16 @@
+# Definition of test regions for gridded data mass reconciliation 
+
+arc01_fyi:
+  label: First-year sea ice region (Arctic)
+  longitude_limits: [110, 140]
+  latitude_limits: [77, 81]
+
+arc02_myi:
+  label: Multi-year sea ice region (Arctic)
+  longitude_limits: [-110, -60]
+  latitude_limits: [80, 86]
+
+arc03_mixed:
+  label: Mixed (first-year and multi-year) sea ice region (Arctic)
+  longitude_limits: [-150, -130]
+  latitude_limits: [71, 76]
