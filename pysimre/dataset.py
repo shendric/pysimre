@@ -7,7 +7,9 @@ Created on Wed May 10 11:46:20 2017
 
 from pysimre.clocks import UTCTAIConverter, daycnv
 from pysimre.misc import ClassTemplate, file_basename
+from pysimre.proj import get_target_grid, TARGET_AREA_DEF
 
+from pyresample import image, geometry
 
 import warnings
 from collections import defaultdict, OrderedDict
@@ -18,6 +20,7 @@ from netCDF4 import Dataset, num2date
 from dateutil.relativedelta import relativedelta
 import numpy as np
 import os
+import sys
 import struct
 import simplejson
 
@@ -436,6 +439,78 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
             setattr(self, parameter_name, getattr(data, nc_parameter_name))
 
 # %% Classes for gridded datasets
+
+
+def GridSourceData(class_name, filepath, dataset_id, period_id):
+
+    try:
+        dataset = globals()[class_name](filepath, dataset_id, period_id)
+    except KeyError:
+        print "Unkown class in pysimre.dataset: %s" % str(class_name)
+        sys.exit()
+    # Return the Dataset class
+    return dataset
+
+
+class SourceGridBaseClass(ClassTemplate):
+
+    def __init__(self, filename, dataset_id, period_id):
+        super(SourceGridBaseClass, self).__init__(self.__class__.__name__)
+        self.filename = filename
+        self.period_id = period_id
+        self.dataset_id = dataset_id
+        self.source_longitude = None
+        self.source_latitude = None
+        self.source_thickness = None
+        lon, lat = get_target_grid()
+        self.longitude = lon
+        self.latitude = lat
+        self.thickness = None
+
+    def resample_to_target_grid(self):
+        """ Use pyresample for nearest neighbour resampling """
+
+        # Resample the image
+        resample_container = image.ImageContainerNearest(
+            self.source_thickness, self.source_areadef,
+            radius_of_influence=25000, fill_value=None)
+        resample_result = resample_container.resample(TARGET_AREA_DEF)
+
+        # pyresample uses masked arrays -> set nan's to missing data
+        data_ease2 = resample_result.image_data
+        data_ease2[np.where(data_ease2.mask)] = np.nan
+        self.thickness = data_ease2
+
+class RegionGrid(ClassTemplate):
+
+    def __init__(self, source_grid, region_id):
+        super(RegionGrid, self).__init__(self.__class__.__name__)
+        self._source_grid = source_grid
+        self._region_id = region_id
+        self.crop_to_region()
+
+
+class AWIGridThickness(SourceGridBaseClass):
+
+    # Area definition for pyresample
+    source_areadef = geometry.AreaDefinition(
+        'ease2', 'NSIDC North Polar Stereographic (25km)',
+        'ease2',
+        {'lat_0': '90.00', 'lat_ts': '70.00',
+         'lon_0': '0.00', 'proj': 'laea'},
+        720, 720,
+        [-9000000., -9000000., 9000000., 9000000.])
+
+    def __init__(self, *args):
+        super(AWIGridThickness, self).__init__(*args)
+        self.read_nc()
+        self.resample_to_target_grid()
+
+    def read_nc(self):
+
+        data = ReadNC(self.filename)
+        self.source_thickness = data.sea_ice_thickness
+
 
 # %% Classes for cal/val datasets
 
