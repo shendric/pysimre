@@ -24,7 +24,7 @@ import matplotlib.patheffects as path_effects
 
 DATASET_COLOR = {"awi": "#00ace5",
                  "ucl": "#000000",
-                 "ccicdr": "#003e6e",
+                 "ccicdr": "#00dc6e",
                  "nasa_jpl":"#ff0e0e"}
 
 DATASET_MARKER = {"awi": "D",
@@ -50,6 +50,7 @@ class OrbitCollectionGraph(ClassTemplate):
         plt.ioff()
         self._create_figure()
         self._populate_subplots()
+        self._add_metadata()
         self._save_to_file()
 
     def _create_figure(self):
@@ -59,14 +60,15 @@ class OrbitCollectionGraph(ClassTemplate):
 
         self.ax_ens = plt.subplot2grid((3, 3), (0, 0), colspan=2)
         self.ax_ens.set_zorder(100)
-        self.ax_ensd = plt.subplot2grid((3, 3), (1, 0), colspan=2)
-        self.ax_ensd.set_zorder(100)
+        self.ax_ensr = plt.subplot2grid((3, 3), (1, 0), colspan=2)
+        self.ax_ensr.set_zorder(100)
         self.ax_map = plt.subplot2grid((3, 3), (0, 2))
-        self.ax_h1 = plt.subplot2grid((3, 3), (2, 0))
-        self.ax_h1.set_zorder(100)
-        self.ax_h2 = plt.subplot2grid((3, 3), (2, 1))
-        self.ax_h2.set_zorder(100)
-        plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.05)
+        self.ax_ensh = plt.subplot2grid((3, 3), (2, 0))
+        self.ax_ensh.set_zorder(100)
+        self.ax_ensscat = plt.subplot2grid((3, 3), (2, 1))
+        self.ax_ensscat.set_zorder(100)
+        plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.1,
+                            wspace=0.35, hspace=0.25)
 
         # Highlight graphs
         bbox_ens = self.ax_ens.get_position()
@@ -85,13 +87,58 @@ class OrbitCollectionGraph(ClassTemplate):
         # Plot the satellite product ensembles
         orbit_ensemble = self._oc.orbit_ensemble
 
-        # Create a graphical representation of the
+        # Create a graphical representation of the sat & cal/val ensembles
         OrbitEnsembleGraph(self.ax_ens, self._oc, calval=True)
-        set_axes_style(self.ax_ens, bg_color=self.bg_color_ax)
+        set_axes_style(self.fig, self.ax_ens, bg_color=self.bg_color_ax)
+        self.ax_ens.set_ylabel("Sea Ice Thickness (m)")
+
+        # Create a graphical representation of the sat & cal/val residuals
+        OrbitEnsembleResidualGraph(self.ax_ensr, self._oc, calval=True)
+        set_axes_style(self.fig, self.ax_ensr, bg_color=self.bg_color_ax)
+        self.ax_ensr.set_ylabel("Thickness Ensemble Anomaly (m)")
+
+        # Create a graphical representation of the sat & cal/val residuals
+        OrbitEnsembleResidualHist(self.ax_ensh, self._oc)
+        set_axes_style(self.fig, self.ax_ensh, bg_color=self.bg_color_ax)
+        self.ax_ensh.set_xlabel("Thickness Ensemble Anomaly (m)")
+        self.ax_ensh.set_ylabel("Frequency")
+
+        # Create a graphical representation of the sat & cal/val residuals
+        OrbitEnsembleScatterGraph(self.ax_ensscat, self._oc)
+        set_axes_style(self.fig, self.ax_ensscat, bg_color=self.bg_color_ax)
+        self.ax_ensscat.set_xlabel("Ensemble Mean Thickness (m)")
+        self.ax_ensscat.set_ylabel("Ensemble Spread (m)")
 
         # Overview Map
         lon, lat = orbit_ensemble.longitude, orbit_ensemble.latitude
         OrbitParameterMap(self.ax_map, lon, lat)
+
+    def _add_metadata(self):
+
+        orbit_ensemble = self._oc.orbit_ensemble
+
+        # get right limit
+        y0 = self.ax_map.get_position().y0
+        x1 = self.ax_map.get_position().x1
+
+        # Orbit ID
+        y = y0 - 0.05
+        plt.annotate("Orbit ID", (x1, y), xycoords="figure fraction",
+                     ha="right")
+        y -= 0.03
+        plt.annotate(self._oc.orbit_id, (x1, y), xycoords="figure fraction",
+                     ha="right", fontsize=14)
+
+        y -= 0.1
+        plt.annotate("Datasets", (x1, y), xycoords="figure fraction",
+                     ha="right")
+        y -= 0.05
+        # Label all datasets
+        for dataset_id in orbit_ensemble.dataset_ids:
+            color = DATASET_COLOR[dataset_id]
+            plt.annotate(dataset_id, (x1, y), xycoords="figure fraction",
+                         ha="right", color=color, fontsize=20)
+            y -= 0.04
 
     def _save_to_file(self):
         plt.savefig(self.output_filename, dpi=300)
@@ -184,6 +231,7 @@ class OrbitEnsembleGraph(object):
         # Plot ensemble means
         if ensemble_mean:
             ax.plot(orbit_ensemble.time, orbit_ensemble_mean,
+                    label="Ensemble Mean Thickness",
                     **self.ensemble_mean_props)
 
             # Fill in between ensemble min/max
@@ -206,6 +254,8 @@ class OrbitEnsembleGraph(object):
                            path_effects=shadow, **self.calval_props)
 
         ax.set_xlim(orbit_collection.time_range)
+        leg = ax.legend(**self.legend_props)
+        leg.set_zorder(300)
 
     @property
     def sdev_fill_props(self):
@@ -226,6 +276,130 @@ class OrbitEnsembleGraph(object):
     @property
     def calval_props(self):
         return dict(lw=2, facecolors="none", edgecolors="#EE00EE", zorder=230)
+
+    @property
+    def legend_props(self):
+        return dict(frameon=False)
+
+
+class OrbitEnsembleResidualGraph(object):
+
+    def __init__(self, ax, orbit_collection, calval=True):
+
+        # Prepare Input
+        orbit_ensemble = orbit_collection.orbit_ensemble
+        orbit_ensemble_mean = orbit_ensemble.get_ensemble_mean()
+        calval_ensemble = orbit_collection.calval_ensemble
+
+        # Plot all datasets
+        for dataset_id in orbit_ensemble.dataset_ids:
+
+            color = DATASET_COLOR[dataset_id]
+            marker = DATASET_MARKER[dataset_id]
+
+            # Get statistics for each dataset
+            dataset_mean = orbit_ensemble.get_member_mean(dataset_id)
+
+            ax.scatter(orbit_ensemble.time, dataset_mean-orbit_ensemble_mean,
+                       color=color,  marker=marker, **self.datasets_props)
+
+        # Plot the calval ensembles
+        if calval:
+            shadow = [path_effects.SimpleLineShadow(offset=(1, -1)),
+                      path_effects.Normal()]
+            for calval_id in calval_ensemble.dataset_ids:
+                dataset_mean = calval_ensemble.get_member_mean(calval_id)
+                ax.scatter(calval_ensemble.time,
+                           dataset_mean-orbit_ensemble_mean,
+                           path_effects=shadow, **self.calval_props)
+
+        ax.axhline(0, **self.zero_line_props)
+        ax.set_ylim(-2, 2)
+        ax.set_xlim(orbit_collection.time_range)
+
+    @property
+    def sdev_fill_props(self):
+        return dict(alpha=0.1, edgecolor="none", zorder=200)
+
+    @property
+    def datasetl_props(self):
+        return dict(lw=0.5, alpha=0.25, zorder=210)
+
+    @property
+    def datasets_props(self):
+        return dict(s=12, alpha=0.5, edgecolors="none", zorder=211)
+
+    @property
+    def ensemble_mean_props(self):
+        return dict(color="black", lw=2, alpha=0.5, zorder=220)
+
+    @property
+    def zero_line_props(self):
+        return dict(color="0.1", lw=1, alpha=0.75, zorder=100)
+
+    @property
+    def calval_props(self):
+        return dict(lw=2, facecolors="none", edgecolors="#EE00EE", zorder=230)
+
+
+class OrbitEnsembleResidualHist(object):
+
+    def __init__(self, ax, orbit_collection):
+
+        orbit_ensemble = orbit_collection.orbit_ensemble
+        orbit_ensemble_mean = orbit_ensemble.get_ensemble_mean()
+
+        bins = np.arange(-2.1, 2.1, 0.2)
+
+        # Plot all datasets
+        for dataset_id in orbit_ensemble.dataset_ids:
+
+            color = DATASET_COLOR[dataset_id]
+
+            # Get statistics for each dataset
+            dataset_mean = orbit_ensemble.get_member_mean(dataset_id)
+            ensemble_residual = dataset_mean-orbit_ensemble_mean
+            is_valid = np.where(np.isfinite(ensemble_residual))[0]
+            ax.hist(ensemble_residual[is_valid], bins, facecolor=color,
+                    normed=True, **self.hist_props1)
+            ax.hist(ensemble_residual[is_valid], bins, color=color,
+                    histtype='step', normed=True, **self.hist_props2)
+
+        ax.set_xlim(-2, 2)
+        # ax.set_ylim(0, 1.1)
+        # ax.axvline(0, )
+
+    @property
+    def hist_props1(self):
+        return dict(alpha=0.1, zorder=200, edgecolor="none")
+
+    @property
+    def hist_props2(self):
+        return dict(alpha=0.5, zorder=200, lw=0.5)
+
+
+class OrbitEnsembleScatterGraph(object):
+
+    def __init__(self, ax, orbit_collection):
+
+        # Prepare Input
+        orbit_ensemble = orbit_collection.orbit_ensemble
+        orbit_ensemble_mean = orbit_ensemble.get_ensemble_mean()
+
+        # Get min max
+        emin, emax = orbit_ensemble.get_ensemble_minmax()
+        ensemble_spread = emax-emin
+
+        ax.scatter(orbit_ensemble_mean, ensemble_spread,
+                   **self.scatter_props)
+
+        ax.set_xlim(0, 5)
+        ax.set_ylim(-0.1, 2)
+
+    @property
+    def scatter_props(self):
+        return dict(marker="s", s=20, color="0.1", edgecolor="none",
+                    zorder=200)
 
 
 class OrbitParameterMap(object):
@@ -256,7 +430,7 @@ class OrbitParameterMap(object):
         m = Basemap(ax=ax, **basemap_args)
         m.drawmapboundary(linewidth=0.1, fill_color='#CCE5FF', zorder=200)
         m.drawcoastlines(linewidth=0.25, color="0.5")
-        m.fillcontinents(color="1.0", lake_color="1.0", zorder=100)
+        m.fillcontinents(color="1.0", lake_color="0.96", zorder=100)
         for type in ['coarse']:
             parallels, keyw = self._get_parallels(grid, type)
             m.drawparallels(parallels, **keyw)
@@ -310,7 +484,8 @@ class OrbitParameterMap(object):
         return meridians, keywords
 
 
-def set_axes_style(ax, bg_color=None, spines_to_remove=["top", "right"]):
+def set_axes_style(f, ax, bg_color=None, spines_to_remove=["top", "right"],
+                   axes_pad=-0.03):
 
     if bg_color is not None:
         ax.patch.set_color(bg_color)
@@ -322,10 +497,22 @@ def set_axes_style(ax, bg_color=None, spines_to_remove=["top", "right"]):
 #    cl = plt.getp(ax, 'xmajorticklabels')
 #    plt.setp(cl, **self.monthfontprops)
 
+
+
     # y-axis
+    fig_size = f.get_size_inches()
+    ax_bbox = ax.get_position()
+    ax_asp = (ax.bbox.y1-ax.bbox.y0)/(ax.bbox.x1-ax.bbox.x0)
+    fig_asp = fig_size[1]/fig_size[0]
+    #stop
+    ax.xaxis.set_tick_params(direction='out')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.spines["bottom"].set_position(("axes", axes_pad))
+
     ax.yaxis.set_tick_params(direction='out')
     ax.yaxis.set_ticks_position('left')
-    ax.spines["left"].set_position(("axes", -0.01))
+    ax.spines["left"].set_position(("axes", axes_pad*ax_asp))
+
 #    cl = plt.getp(ax, 'ymajorticklabels')
 #    plt.setp(cl, **self.parlabelfontprops)
 
