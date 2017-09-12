@@ -699,13 +699,13 @@ class GridCollectionGraph(ClassTemplate):
 
         # Store in a linear increasing axes array
         self.ax_arr = []
-        panels = (n_cols, n_rows)
+        self.panels = (n_cols, n_rows)
         index = 0
         for row in np.arange(n_rows):
             for col in np.arange(n_cols):
                 if index > n_datasets:
                     continue
-                self.ax_arr.append(plt.subplot2grid(panels, (col, row)))
+                self.ax_arr.append(plt.subplot2grid(self.panels, (col, row)))
                 index += 1
 
         plt.subplots_adjust(left=0.08, right=0.92, top=0.97, bottom=0.11,
@@ -777,13 +777,16 @@ class GridCollectionGraph(ClassTemplate):
 
     def _add_metadata(self):
 
-        plt.annotate("Region: %s" % self._gc.region_id, (0.5, 0.05),
+        # Index of first panel in second column
+        index = self.panels[0]
+        x0 = self.ax_arr[index].get_position().x0
+        width = self.ax_arr[index].get_position().x1 - x0
+        xc = x0 + 0.5*width
+        region_label = self._gc.region_id.replace("_", " ")
+        region_label = region_label.upper()
+        plt.annotate("%s  %s" % (region_label, self._period_id), (xc, 0.08),
                      xycoords="figure fraction", color="0.2", fontsize=20,
-                     zorder=400)
-
-        plt.annotate("Period: %s" % self._period_id, (0.8, 0.05),
-                     xycoords="figure fraction", color="0.2", fontsize=20,
-                     zorder=400)
+                     ha="center", va="center", zorder=400)
 
     @property
     def output_filename(self):
