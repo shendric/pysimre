@@ -501,8 +501,8 @@ class SourceGridBaseClass(ClassTemplate):
             self.thickness = np.flipud(self.thickness)
 
     def resample_sourcepoints_to_targetgrid(self):
-        """ Use gridding to populate the target grid with source data
-        points (lon, lat, thickness) """
+        """ Use gridding to populate the target grid with gridded source
+        data points given as a list of lon, lat, thickness """
 
         # Do gridding in projection coordinates to avoid issues
         # with longitude wrapping
@@ -533,8 +533,52 @@ class SourceGridBaseClass(ClassTemplate):
             nodata_mask[y_index, x_index] = 1.0
         target_thickness *= nodata_mask
 
-        # Set target thickness
+        # Set gridded source thickness
         self.thickness = target_thickness
+
+    def grid_sourcepoints_to_targetgrid(self):
+        """ Use gridding to populate the target grid with orbit source data
+        points (lon, lat, thickness) """
+
+        # Sort all data points into stack for each grid cell
+        stack = self.parameter_stack
+
+        # Get the grid indices for each point in the source input data
+        xi, yj = self.griddef.grid_indices(
+                self.source_longitude, self.source_latitude)
+
+        # Sort all points in the stack
+        j = 0
+        for i in np.arange(len(self.source_longitude)):
+            x, y = int(xi[i]), int(yj[i])
+            try:
+                stack[y][x].append(self.source_thickness[i])
+            except IndexError:  # orbit point outside grid -> ignore
+                j += 1
+                pass
+
+        # Compute gridded thickness as mean for each stack entry
+        thickness = np.full(self.longitude.shape, np.nan)
+        for xi in self.grid_xi_range:
+            for yj in self.grid_yj_range:
+                stacked_data = np.array(stack[yj][xi])
+                thickness[yj, xi] = np.nanmean(stacked_data)
+
+        self.thickness = thickness
+
+    @property
+    def parameter_stack(self):
+        """ Returns a stack for source orbit data """
+        dimx, dimy = self.griddef.extent.numx, self.griddef.extent.numy
+        return [[[] for _ in range(dimx)] for _ in range(dimy)]
+
+    @property
+    def grid_xi_range(self):
+        return np.arange(self.griddef.extent.numx)
+
+    @property
+    def grid_yj_range(self):
+        return np.arange(self.griddef.extent.numy)
 
     @property
     def source_filename(self):
@@ -791,12 +835,6 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
         sit[np.where(sit < -999.)] = np.nan
         self.source_thickness = sit  # np.flipud(sit)
 
-#        import matplotlib.pyplot as plt
-#        plt.figure()
-#        plt.imshow(sit)
-#        plt.show()
-#        plt.colorbar()
-#        stop
 
 class NasaJPLGridThickness(SourceGridBaseClass):
 
@@ -818,12 +856,34 @@ class NasaJPLGridThickness(SourceGridBaseClass):
         self.source_latitude = data["latitude"]
         self.source_thickness = data["thickness"]
 
-#        import matplotlib.pyplot as plt
-#        plt.figure()
-#        plt.scatter(data["longitude"], data["latitude"], c=data["thickness"],
-#                    vmin=0, vmax=5, cmap=plt.get_cmap("plasma"))
-#        plt.show()
-#        stop
+
+class UCLGridThickness(SourceGridBaseClass):
+
+    def __init__(self, *args):
+        super(UCLGridThickness, self).__init__(*args)
+        self.read_ascii()
+        self.grid_sourcepoints_to_targetgrid()
+
+    def read_ascii(self):
+        # UCL data comes as one ascii file per day for each region/period
+        # The filename argument therefore is a search string that should
+        # return several files, which content needs to concatenated and
+        filenames = glob(self.filename)
+
+        # Parse and stack the content
+        col_names = ["time", "longitude", "latitude", "thickness", "flag",
+                     "concentration"]
+        longitude, latitude, thickness = [], [], []
+        for filename in filenames:
+            # Read the data
+            data = np.genfromtxt(filename, names=col_names)
+            longitude.extend(data["longitude"])
+            latitude.extend(data["latitude"])
+            thickness.extend(data["thickness"])
+
+        self.source_longitude = np.array(longitude)
+        self.source_latitude = np.array(latitude)
+        self.source_thickness = np.array(thickness)
 
 
 # %% Classes for cal/val datasets
