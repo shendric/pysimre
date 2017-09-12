@@ -14,10 +14,12 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 
 
-class DatasetOrbitCollection(ClassTemplate):
+# %% Orbit Collection classes
+
+class OrbitCollection(ClassTemplate):
 
     def __init__(self, orbit_id):
-        super(DatasetOrbitCollection, self).__init__(self.__class__.__name__)
+        super(OrbitCollection, self).__init__(self.__class__.__name__)
 
         # Main identifier
         self._orbit_id = orbit_id
@@ -418,3 +420,53 @@ class OrbitEnsembleItem(ClassTemplate):
             return np.nanmax(self._lons)
         except ValueError:
             return np.nan
+
+# %% Grid Collection Classes
+
+
+class GridCollection(ClassTemplate):
+
+    def __init__(self, region_id):
+        super(GridCollection, self).__init__(self)
+        self._region_id = region_id
+        self._datasets = {}
+
+    def add_dataset(self, dataset):
+        """ Add a grid dataset """
+
+        # Create a dictionary for a dataset (if not already existing)
+        if dataset.dataset_id not in self.dataset_ids:
+            self._datasets[dataset.dataset_id] = {}
+
+        # add to dictionary in the struction dataset_id, period_id
+        self._datasets[dataset.dataset_id][dataset.period_id] = dataset
+
+    def get_dataset(self, dataset_id, period_id):
+        try:
+            return self._datasets[dataset_id][period_id]
+        except KeyError:
+            return None
+
+    @property
+    def dataset_ids(self):
+        """ Return a list of all dataset ids in collection """
+        return sorted(self._datasets.keys())
+
+    @property
+    def period_ids(self):
+        """ Return a list of all periods in collection. Note: Not all dataset
+        might have a entry for all periods """
+        period_ids = [self._datasets[did].keys() for did in self.dataset_ids]
+        return np.unique(sorted(np.concatenate(period_ids)))
+
+    @property
+    def region_id(self):
+        return str(self._region_id)
+
+    @property
+    def n_datasets(self):
+        return len(self._datasets.keys())
+
+    @property
+    def n_periods(self):
+        return len(self.period_ids)

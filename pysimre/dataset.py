@@ -715,6 +715,26 @@ class RegionGrid(ClassTemplate):
         # Close the file
         rootgrp.close()
 
+    def from_netcdf(self, netcdf_filename):
+        """ Populate data groups from SIMRE netcdf """
+
+        # Read the data
+        data = ReadNC(netcdf_filename)
+
+        # Transfer ids
+        region_id = data.region_id
+        if region_id != self.region_id:
+            msg = "Region id in SIMRE netcdf (%s) not Region id of object (%s)"
+            msg = msg % (region_id, self.region_id)
+            self.error("region_id-mismatch", msg)
+            self.error.raise_on_error()
+        self._dataset_id = data.dataset_id
+        self._period_id = data.period_id
+
+        self.longitude = data.longitude
+        self.latitude = data.latitude
+        self.thickness = data.sea_ice_thickness
+
     @property
     def region_id(self):
         return str(self._region_id)

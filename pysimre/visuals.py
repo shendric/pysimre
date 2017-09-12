@@ -35,6 +35,8 @@ DATASET_MARKER = {"awi": "D",
                   "nasa_jpl": "H"}
 
 
+# %% Orbit Plot Classes
+
 class OrbitCollectionHists(ClassTemplate):
     """ A figure summarizin the thickness histograms for all/colocated
     ensemble points """
@@ -506,7 +508,7 @@ class OrbitEnsembleHist(object):
             points = orbit_ensemble.get_member_points(dataset_id, mode=mode)
             is_valid = np.where(np.isfinite(points))[0]
             n, bins, patches = ax.hist(points[is_valid], bins, facecolor=color,
-                    normed=True, **self.hist_props1)
+                                       normed=True, **self.hist_props1)
             ax.hist(points[is_valid], bins, color=color,
                     histtype='step', normed=True, **self.hist_props2)
 
@@ -614,17 +616,10 @@ class OrbitParameterMap(object):
         else:
             m.scatter(px, py, marker=".", zorder=200)
 
-
         if zval is not None and colorbar is not None:
-            cb = plt.colorbar(lc, ax=ax, shrink=0.7, aspect=15,
-                              drawedges=False, orientation="horizontal",
-                              **colorbar)
-            # cb.solids.set_visible(False)
-
-
-        #plt.title(label, loc="left")
-
-        # return basemap_args
+            plt.colorbar(lc, ax=ax, shrink=0.7, aspect=15,
+                         drawedges=False, orientation="horizontal",
+                         **colorbar)
 
     def _get_parallels(self, grid, type):
         latmax = 88
@@ -668,6 +663,122 @@ class OrbitParameterMap(object):
         return meridians, keywords
 
 
+# %% Grid Plot Classes
+
+class GridCollectionGraph(ClassTemplate):
+
+    bg_color_fig = "0.96"
+
+    def __init__(self, grid_collection, period_id, output_path):
+        super(GridCollectionGraph, self).__init__(self.__class__.__name__)
+
+        # Save input parameter
+        self._period_id = period_id
+        self._gc = grid_collection
+        self._output_path = output_path
+
+        plt.ioff()
+        self._create_figure()
+        self._populate_subplots()
+        self._add_metadata()
+        self._save_to_file()
+
+    def _create_figure(self):
+
+        # Create figure
+        n_datasets = self._gc.n_datasets
+
+        self.fig = plt.figure(figsize=(12, 12))
+
+        # Get the number of rows / columns (n x n layout)
+        n_rows = int(np.ceil(np.sqrt(float(n_datasets))))
+        n_cols = n_rows
+
+        # Store in a linear increasing axes array
+        self.ax_arr = []
+        panels = (n_cols, n_rows)
+        index = 0
+        for row in np.arange(n_rows):
+            for col in np.arange(n_cols):
+                if index > n_datasets:
+                    continue
+
+                self.ax_arr.append(plt.subplot2grid(panels, (col, row)))
+                index += 1
+        plt.subplots_adjust(left=0.1, right=0.9, top=0.95, bottom=0.15,
+                            wspace=0.1, hspace=0.1)
+
+        bg = self.fig.add_axes([0, 0, 1, 1])
+        bg.xaxis.set_visible(False)
+        bg.yaxis.set_visible(False)
+        bg.set_zorder(5)
+        bg.patch.set_color(self.bg_color_fig)
+        for target in ["left", "right", "bottom", "top"]:
+            bg.spines[target].set_visible(False)
+
+    def _populate_subplots(self):
+
+        # Get reference lons/lats for nodate paneles
+        dataset_id = self._gc.dataset_ids[0]
+        dataset = self._gc.get_dataset(dataset_id, self._period_id)
+        nodata_lons, nodata_lats = dataset.longitude, dataset.latitude
+
+        cmap = plt.get_cmap("plasma")
+
+        for i, dataset_id in enumerate(self._gc.dataset_ids):
+            ax = self.ax_arr[i]
+            ax.set_zorder(100)
+            ax.set_title(dataset_id.replace("_", " "), fontsize=14)
+            dataset = self._gc.get_dataset(dataset_id, self._period_id)
+            if dataset is not None:
+                lons, lats = dataset.longitude, dataset.latitude
+                scatter_props = dict(c=dataset.thickness, vmin=0, vmax=5,
+                                     s=20, edgecolors="0.9", lw=0.1,
+                                     cmap=cmap)
+                GridParameterMap(ax, lons, lats, scatter_props=scatter_props)
+            else:
+                GridParameterMap(ax, nodata_lons, nodata_lats)
+
+    def _add_metadata(self):
+        pass
+
+    def _save_to_file(self):
+        plt.savefig(self.output_filename, dpi=300)
+
+    @property
+    def output_filename(self):
+        filename = "GC_%s_%s.png"
+        filename = filename % (self._gc.region_id, self._period_id)
+        output_filename = os.path.join(self._output_path, filename)
+        self.log.info("Export figure: %s" % output_filename)
+        return output_filename
+
+
+class GridParameterMap(object):
+
+    def __init__(self, ax, lons, lats, basemap_args=None, scatter_props=None):
+        """ Generate a simple map with orbit location """
+
+        if basemap_args is None:
+            basemap_args = get_basemap_args_from_positions(
+                    lons,  lats, scale=1.05, res="i")
+        m = Basemap(ax=ax, **basemap_args)
+        m.drawmapboundary(linewidth=0.1, fill_color='0.2', zorder=200)
+        m.drawcoastlines(linewidth=0.25, color="0.8")
+        m.fillcontinents(color="0.3", lake_color="0.3", zorder=100)
+
+        if scatter_props is not None:
+            x, y = m(lons, lats)
+            m.scatter(x, y, **scatter_props)
+        else:
+            lx, ly = m(basemap_args["lon_0"], basemap_args["lat_0"])
+            ax.annotate("No Data", (lx, ly), xycoords='data',
+                        ha="center", va="center", color="0.8", fontsize=20,
+                        zorder=400)
+
+# %% utility functions
+
+
 def set_axes_style(f, ax, bg_color=None, spines_to_remove=["top", "right"],
                    axes_pad=-0.03, remove_yaxis=False):
 
@@ -683,19 +794,9 @@ def set_axes_style(f, ax, bg_color=None, spines_to_remove=["top", "right"],
     for spine in spines_to_remove:
         ax.spines[spine].set_visible(False)
 
-
-
-#    cl = plt.getp(ax, 'xmajorticklabels')
-#    plt.setp(cl, **self.monthfontprops)
-
-
-
     # y-axis
-    fig_size = f.get_size_inches()
-    ax_bbox = ax.get_position()
     ax_asp = (ax.bbox.y1-ax.bbox.y0)/(ax.bbox.x1-ax.bbox.x0)
-    fig_asp = fig_size[1]/fig_size[0]
-    #stop
+
     ax.xaxis.set_tick_params(direction='out')
     ax.xaxis.set_ticks_position('bottom')
     ax.spines["bottom"].set_position(("axes", axes_pad))
@@ -703,9 +804,6 @@ def set_axes_style(f, ax, bg_color=None, spines_to_remove=["top", "right"],
     ax.yaxis.set_tick_params(direction='out')
     ax.yaxis.set_ticks_position('left')
     ax.spines["left"].set_position(("axes", axes_pad*ax_asp))
-
-#    cl = plt.getp(ax, 'ymajorticklabels')
-#    plt.setp(cl, **self.parlabelfontprops)
 
 
 def get_basemap_args_from_positions(longitude, latitude,

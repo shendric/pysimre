@@ -40,6 +40,30 @@ class SimreRepository(ClassTemplate):
             collection.add_dataset(dataset_id, filepath)
         return collection
 
+    def get_grid_collection(self, region_id):
+        """ Returns a collection object for all gridded datasets
+        (files of type SIMRE_$dataset_id$_$region_id$_$period_id%.nc) """
+
+        # Init the collection object
+        grid_collection = GridCollection(region_id)
+
+        # Loop over all datasets and add a data set for each data period
+        for dataset_id in self.dataset_ids:
+
+            # Get the catalogue for the dataset and retrieve all
+            # SIMRE grid files
+            ctlg = self.dataset_catalogues[dataset_id]
+            simre_netcdfs = ctlg.get_simre_grid_netcdfs(region_id=region_id)
+
+            # Add the region grid
+            # (which is aware of dataset_id, region_id & period_id)
+            for simre_netcdf in simre_netcdfs:
+                region_grid = RegionGrid(region_id)
+                region_grid.from_netcdf(simre_netcdf)
+                grid_collection.add_dataset(region_grid)
+
+        return grid_collection
+
     def get_calval_dataset(self, orbit_id, source_id):
         """ Returns a calval dataset object """
 
@@ -345,6 +369,31 @@ class SimreDatasetCatalogue(ClassTemplate):
         directory = os.path.join(self.path, *subfolders)
         filename = "SIMRE-%s-%s-%s.nc" % (dataset_id, region_id, period_id)
         return os.path.join(directory, filename)
+
+    def get_simre_grid_netcdfs(self, region_id=None):
+        """ Return a list of SIMRE grid netcdf files """
+
+        # Config data
+        rg_info = self.repo_config.dataset.region
+
+        # Support function
+
+        def is_netcdf(f): return re.search("SIMRE-(\S)*.nc", f)
+
+        # Lookup directory
+        directory = os.path.join(self.path, rg_info.subfolder)
+        if region_id is not None:
+            directory = os.path.join(directory, region_id)
+
+        # Check for all SIMRE files in lookup directory
+        # (search independent of lookup directory subfolders)
+        simre_grid_netcdfs = []
+
+        for root, dirs, files in os.walk(directory):
+            netcdfs = [os.path.join(root, f) for f in files if is_netcdf(f)]
+            simre_grid_netcdfs.extend(sorted(netcdfs))
+
+        return simre_grid_netcdfs
 
     @property
     def dataset_id(self):
