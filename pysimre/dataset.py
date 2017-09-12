@@ -895,13 +895,21 @@ class UCLGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(UCLGridThickness, self).__init__(*args)
         self.read_ascii()
-        self.grid_sourcepoints_to_targetgrid()
+        if not self.error.status:
+            self.grid_sourcepoints_to_targetgrid()
 
     def read_ascii(self):
         # UCL data comes as one ascii file per day for each region/period
         # The filename argument therefore is a search string that should
         # return several files, which content needs to concatenated and
         filenames = glob(self.filename)
+        if len(filenames) == 0:
+            msg = "No input files found for %s.%s.%s [%s]" % (
+                    self.dataset_id, self.region_id, self.period_id,
+                    self.filename)
+            self.log.warning(msg)
+            self.error.add_error("missing-file(s)", msg)
+            return
 
         # Parse and stack the content
         col_names = ["time", "longitude", "latitude", "thickness", "flag",
