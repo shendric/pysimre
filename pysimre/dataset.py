@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from netCDF4 import Dataset, num2date
 
 from dateutil.relativedelta import relativedelta
+from glob import glob
 import numpy as np
 import os
 import sys
@@ -757,6 +758,23 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
 #        plt.show()
 #        plt.colorbar()
 #        stop
+
+class NasaJPLGridThickness(SourceGridBaseClass):
+
+    def __init__(self, *args):
+        super(NasaJPLGridThickness, self).__init__(*args)
+        self.read_ascii()
+
+    def read_ascii(self):
+        # NASA JPL data comes as one ascii file per region/period
+        # The filename argument therefore is a search string that should
+        # return 1 file
+        actual_filename = glob(self.filename)[0]
+
+        # Read the daata
+        col_names = ["latitude", "longitude", "thickness"]
+        data = np.genfromtxt(actual_filename, names=col_names)
+        stop
 
 
 # %% Classes for cal/val datasets
