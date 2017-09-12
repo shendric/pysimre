@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from pysimre.collection import DatasetOrbitCollection
-from pysimre.dataset import CalValDataset, GridSourceData
+from pysimre.collection import OrbitCollection, GridCollection
+from pysimre.dataset import CalValDataset, GridSourceData, RegionGrid
 from pysimre.misc import ClassTemplate, parse_config_file
 
 import glob
 import os
-
+import re
 
 class SimreRepository(ClassTemplate):
     """ Access container to local SIMBIE data repository """
@@ -32,7 +32,7 @@ class SimreRepository(ClassTemplate):
         return self.dataset_catalogues.get(dataset_id, None)
 
     def get_orbit_collection(self, orbit_id):
-        collection = DatasetOrbitCollection(orbit_id)
+        collection = OrbitCollection(orbit_id)
         orbit_dataset_list = [
                 ctlg.filepath_info(orbit_id) for ctlg in self.catalogue_list
                 if ctlg.has_orbit(orbit_id)]
@@ -75,12 +75,20 @@ class SimreRepository(ClassTemplate):
     def get_figure_path(self, dataset_item):
 
         # Orbit Collection
-        if isinstance(dataset_item, DatasetOrbitCollection):
+        if isinstance(dataset_item, OrbitCollection):
             figure_path = os.path.join(
                     self.local_path,
                     "figures",
                     "calval_orbits",
                     dataset_item.orbit_id)
+
+        elif isinstance(dataset_item, GridCollection):
+            figure_path = os.path.join(
+                    self.local_path,
+                    "figures",
+                    "test_region",
+                    dataset_item.region_id)
+
         else:
             self.log.warning("Unknown dataset type: %s" % type(dataset_item))
             return None
@@ -164,6 +172,7 @@ class SimreRepository(ClassTemplate):
 
         # Check if file has been found
         if filepath is None:
+            self.log.warning("No source file in data catalogues")
             return None
 
         # Check if file(s) exists
@@ -191,7 +200,7 @@ class SimreRepository(ClassTemplate):
         source_data_grid = GridSourceData(pyclass, filepath, *ids)
 
         # Check for errors while retrieving and gridding data
-        if not source_data_grid:
+        if not source_data_grid.error.status:
             return source_data_grid
         else:
             return None

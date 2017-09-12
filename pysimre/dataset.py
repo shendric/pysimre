@@ -660,13 +660,14 @@ class RegionGrid(ClassTemplate):
 
         lons, lats = self.longitude, self.latitude
 
+        self.log.info("Write SIMRE netcdf: %s" % output_filepath)
         # Open the file
         rootgrp = Dataset(output_filepath, "w")
 
         # Write Global Attributes
         rootgrp.setncattr("title", "Regional Data for Sea Ice Mass " +
                           "Reconciliation Exercise (SIMRE)")
-        rootgrp.setncattr("procect", "Arctic+ Theme 2: Sea Ice Mass")
+        rootgrp.setncattr("project", "Arctic+ Theme 2: Sea Ice Mass")
         rootgrp.setncattr("source", source_filename)
         rootgrp.setncattr("dataset_id", self.dataset_id)
         rootgrp.setncattr("region_id", self.region_id)
