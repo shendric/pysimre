@@ -730,6 +730,7 @@ class GridCollectionGraph(ClassTemplate):
         map_bg_color = "0.2"
         sit_min, sit_max = self._gc.thickness_range
         vmax = int(np.ceil(sit_max))
+        vmax = vmax if vmax <= 5 else 5
 
         for i, dataset_id in enumerate(self._gc.dataset_ids):
             ax = self.ax_arr[i]
