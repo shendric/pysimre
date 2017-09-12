@@ -15,6 +15,8 @@ import warnings
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 
+from scipy.interpolate import griddata
+
 from netCDF4 import Dataset, num2date
 
 from dateutil.relativedelta import relativedelta
@@ -480,7 +482,8 @@ class SourceGridBaseClass(ClassTemplate):
         return region_data
 
     def resample_sourcegrid_to_targetgrid(self):
-        """ Use pyresample for nearest neighbour resampling """
+        """ Use pyresample for nearest neighbour resampling for gridded source
+        data """
 
         # Resample the image
         resample_container = image.ImageContainerNearest(
@@ -493,14 +496,45 @@ class SourceGridBaseClass(ClassTemplate):
         data_ease2[np.where(data_ease2.mask)] = np.nan
         self.thickness = data_ease2
 
-        # XXX: This is not understood
+        # XXX: It is not yet understood why this is necessary
         if self.dataset_id == "nasa_gsfc":
             self.thickness = np.flipud(self.thickness)
-#            import matplotlib.pyplot as plt
-#            plt.figure()
-#            plt.imshow(np.flipud(self.thickness))
-#            plt.show()
-#            stop
+
+    def resample_sourcepoints_to_targetgrid(self):
+        """ Use gridding to populate the target grid with source data
+        points (lon, lat, thickness) """
+
+        # Do gridding in projection coordinates to avoid issues
+        # with longitude wrapping
+        source_x, source_y = self.griddef.get_projection_coordinates(
+                self.source_longitude, self.source_latitude)
+
+        target_x, target_y = self.griddef.get_projection_coordinates(
+                self.longitude, self.latitude)
+
+        # Grid the data usind nearest neighbour interpolation
+        # NOTE: griddata will fill the entire grid. Thus, if only
+        #       source data for a given region is defined, the grid
+        #       will contain garbage for all grid cells outside the region
+        #       but we do not want to interpolate over data gaps/lands
+        griddata_settings = {'method': 'nearest', 'rescale': False}
+        target_thickness = griddata((source_x, source_y),
+                                    self.source_thickness,
+                                    (target_x, target_y),
+                                    **griddata_settings)
+
+        # Mask out empty target grid cells by computing an array
+        # that is 1.0 for a grid cell that has a target point in it and
+        # nan otherwise
+        nodata_mask = np.full(target_thickness.shape, np.nan)
+        x_indices, y_indices = self.griddef.grid_indices(
+                self.source_longitude, self.source_latitude)
+        for x_index, y_index in zip(x_indices, y_indices):
+            nodata_mask[y_index, x_index] = 1.0
+        target_thickness *= nodata_mask
+
+        # Set target thickness
+        self.thickness = target_thickness
 
     @property
     def source_filename(self):
@@ -769,7 +803,7 @@ class NasaJPLGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(NasaJPLGridThickness, self).__init__(*args)
         self.read_ascii()
-        self.
+        self.resample_sourcepoints_to_targetgrid()
 
     def read_ascii(self):
         # NASA JPL data comes as one ascii file per region/period
