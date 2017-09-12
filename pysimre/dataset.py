@@ -457,6 +457,8 @@ class SourceGridBaseClass(ClassTemplate):
 
     def __init__(self, filename, dataset_id, period_id):
         super(SourceGridBaseClass, self).__init__(self.__class__.__name__)
+
+        # Source metadata
         self.filename = filename
         self.period_id = period_id
         self.dataset_id = dataset_id
@@ -477,7 +479,7 @@ class SourceGridBaseClass(ClassTemplate):
         region_data.from_source_grid(self)
         return region_data
 
-    def resample_to_target_grid(self):
+    def resample_sourcegrid_to_targetgrid(self):
         """ Use pyresample for nearest neighbour resampling """
 
         # Resample the image
@@ -662,7 +664,7 @@ class AWIGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(AWIGridThickness, self).__init__(*args)
         self.read_nc()
-        self.resample_to_target_grid()
+        self.resample_sourcegrid_to_targetgrid()
 
     def read_nc(self):
         data = ReadNC(self.filename)
@@ -695,7 +697,7 @@ class CS2SMOSGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(CS2SMOSGridThickness, self).__init__(*args)
         self.read_nc()
-        self.resample_to_target_grid()
+        self.resample_sourcegrid_to_targetgrid()
 
     def read_nc(self):
         thickness_grids = []
@@ -725,7 +727,7 @@ class LEGOSGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(LEGOSGridThickness, self).__init__(*args)
         self.read_nc()
-        self.resample_to_target_grid()
+        self.resample_sourcegrid_to_targetgrid()
 
     def read_nc(self):
         data = ReadNC(self.filename)
@@ -746,7 +748,7 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(NasaGSFCGridThickness, self).__init__(*args)
         self.read_nc()
-        self.resample_to_target_grid()
+        self.resample_sourcegrid_to_targetgrid()
 
     def read_nc(self):
         data = ReadNC(self.filename)
@@ -767,6 +769,7 @@ class NasaJPLGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(NasaJPLGridThickness, self).__init__(*args)
         self.read_ascii()
+        self.
 
     def read_ascii(self):
         # NASA JPL data comes as one ascii file per region/period
@@ -777,7 +780,16 @@ class NasaJPLGridThickness(SourceGridBaseClass):
         # Read the daata
         col_names = ["latitude", "longitude", "thickness"]
         data = np.genfromtxt(actual_filename, names=col_names)
-        stop
+        self.source_longitude = data["longitude"]
+        self.source_latitude = data["latitude"]
+        self.source_thickness = data["thickness"]
+
+#        import matplotlib.pyplot as plt
+#        plt.figure()
+#        plt.scatter(data["longitude"], data["latitude"], c=data["thickness"],
+#                    vmin=0, vmax=5, cmap=plt.get_cmap("plasma"))
+#        plt.show()
+#        stop
 
 
 # %% Classes for cal/val datasets
