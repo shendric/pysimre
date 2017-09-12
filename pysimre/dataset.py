@@ -7,7 +7,7 @@ Created on Wed May 10 11:46:20 2017
 
 from pysimre.clocks import UTCTAIConverter, daycnv
 from pysimre.misc import ClassTemplate, file_basename
-from pysimre.proj import get_target_grid, get_region_def, TARGET_AREA_DEF
+from pysimre.proj import SIMREGridDefinition, get_region_def, TARGET_AREA_DEF
 
 from pyresample import image, geometry
 
@@ -463,7 +463,10 @@ class SourceGridBaseClass(ClassTemplate):
         self.source_longitude = None
         self.source_latitude = None
         self.source_thickness = None
-        lon, lat = get_target_grid()
+
+        # Commm grid definition
+        self.griddef = SIMREGridDefinition()
+        lon, lat = self.griddef.get_grid_coordinates()
         self.longitude = lon
         self.latitude = lat
         self.thickness = None

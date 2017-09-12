@@ -31,7 +31,7 @@ TARGET_AREA_DEF = geometry.AreaDefinition(
 def get_target_grid():
     """ Return longitude/latitude grid coordinates for the SIMRE default
     grid """
-    grid = DefaultGridDefinition()
+    grid = SIMREGridDefinition()
     return grid.get_grid_coordinates()
 
 
@@ -47,14 +47,14 @@ def get_region_def(region_id):
         return None
 
 
-class DefaultGridDefinition(ClassTemplate):
+class SIMREGridDefinition(ClassTemplate):
     """ A container class for geospatial grids.  The main components are
     a) the projection (based on pyproj) and b) the extent and grid size.
     The class is currently designed for stereographic/equal area projection
     types. """
 
     def __init__(self, preset=None):
-        super(DefaultGridDefinition, self).__init__(self.__class__.__name__)
+        super(SIMREGridDefinition, self).__init__(self.__class__.__name__)
         self._preset = preset
         self._metadata = {"grid_id": "n/a", "grid_tag": "n/a",
                           "hemisphere": "n/a", "resolution_tag": "n/a"}
