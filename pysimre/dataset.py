@@ -487,6 +487,15 @@ class SourceGridBaseClass(ClassTemplate):
         data_ease2[np.where(data_ease2.mask)] = np.nan
         self.thickness = data_ease2
 
+        # XXX: This is not understood
+        if self.dataset_id == "nasa_gsfc":
+            self.thickness = np.flipud(self.thickness)
+#            import matplotlib.pyplot as plt
+#            plt.figure()
+#            plt.imshow(np.flipud(self.thickness))
+#            plt.show()
+#            stop
+
     @property
     def source_filename(self):
         if isinstance(self.filename, list):
@@ -728,7 +737,7 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
         {'lat_0': '90.00', 'lat_ts': '70.00',
          'lon_0': '-45.00', 'proj': 'stere'},
         304, 448,
-        [-3850000.0, -5350000.0, 3750000.0, 5850000.0])
+        [-3800000.0, -5350000.0, 3800000.0, 5850000.0])
 
     def __init__(self, *args):
         super(NasaGSFCGridThickness, self).__init__(*args)
@@ -740,7 +749,14 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
 
         sit = data.sea_ice_thickness
         sit[np.where(sit < -999.)] = np.nan
-        self.source_thickness = sit
+        self.source_thickness = sit  # np.flipud(sit)
+
+#        import matplotlib.pyplot as plt
+#        plt.figure()
+#        plt.imshow(sit)
+#        plt.show()
+#        plt.colorbar()
+#        stop
 
 
 # %% Classes for cal/val datasets
