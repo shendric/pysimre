@@ -444,10 +444,12 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
 # %% Classes for gridded datasets
 
 
-def GridSourceData(class_name, filepath, dataset_id, period_id):
+def GridSourceData(class_name, filepath, *ids):
+    """ Getter function for the gridded source data. *ids is the
+    array [dataset_id, region_id, period_id] """
 
     try:
-        dataset = globals()[class_name](filepath, dataset_id, period_id)
+        dataset = globals()[class_name](filepath, *ids)
     except KeyError:
         print "Unkown class in pysimre.dataset: %s" % str(class_name)
         sys.exit()
@@ -457,12 +459,13 @@ def GridSourceData(class_name, filepath, dataset_id, period_id):
 
 class SourceGridBaseClass(ClassTemplate):
 
-    def __init__(self, filename, dataset_id, period_id):
+    def __init__(self, filename, dataset_id, region_id, period_id):
         super(SourceGridBaseClass, self).__init__(self.__class__.__name__)
 
         # Source metadata
         self.filename = filename
         self.period_id = period_id
+        self.region_id = region_id
         self.dataset_id = dataset_id
         self.source_longitude = None
         self.source_latitude = None
@@ -841,13 +844,22 @@ class NasaJPLGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(NasaJPLGridThickness, self).__init__(*args)
         self.read_ascii()
-        self.resample_sourcepoints_to_targetgrid()
+        if not self.error.status:
+            self.resample_sourcepoints_to_targetgrid()
 
     def read_ascii(self):
         # NASA JPL data comes as one ascii file per region/period
         # The filename argument therefore is a search string that should
         # return 1 file
-        actual_filename = glob(self.filename)[0]
+        try:
+            actual_filename = glob(self.filename)[0]
+        except IndexError:  # no file exists
+            msg = "No input files found for %s.%s.%s [%s]" % (
+                    self.dataset_id, self.region_id, self.period_id,
+                    self.filename)
+            self.log.warning(msg)
+            self.error.add_error("missing-file(s)", msg)
+            return
 
         # Read the daata
         col_names = ["latitude", "longitude", "thickness"]

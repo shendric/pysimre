@@ -160,9 +160,41 @@ class SimreRepository(ClassTemplate):
         ctlg = self.dataset_catalogues[dataset_id]
         filepath = ctlg.get_sourcegrid_filepath(region_id, period_id)
         pyclass = ctlg.sourcegrid_pyclass
-        grid_source_data = GridSourceData(pyclass, filepath,
-                                          dataset_id, period_id)
-        return grid_source_data
+        ids = [dataset_id, region_id, period_id]
+
+        # Check if file has been found
+        if filepath is None:
+            return None
+
+        # Check if file(s) exists
+        # NOTE:
+        # 1. If multiple specific input file period exist, the file check
+        #    counts as failed if one source files is missing
+        # 2. If the filepath is a search string (*), no meaningful file check
+        #    can be carried out here
+        if "*" not in filepath:
+            if isinstance(filepath, list):
+                subfiles_exist = [os.path.isfile(f) for f in filepath]
+                file_exists = False not in subfiles_exist
+            else:
+                file_exists = os.path.isfile(filepath)
+
+            if not file_exists:
+                msg = "Missing input files for %s.%s.%s" % tuple(ids)
+                self.log.warning(msg)
+                return None
+
+        # Get the source data
+        self.log.info("Retrieving grid source data [%s.%s.%s]" % tuple(ids))
+
+        # Get the source data on the SIMRE grid
+        source_data_grid = GridSourceData(pyclass, filepath, *ids)
+
+        # Check for errors while retrieving and gridding data
+        if not source_data_grid:
+            return source_data_grid
+        else:
+            return None
 
     @property
     def local_path(self):
