@@ -23,6 +23,9 @@ import matplotlib.patheffects as path_effects
 from matplotlib.collections import LineCollection
 from matplotlib import markers
 from matplotlib.path import Path
+from matplotlib.ticker import MultipleLocator
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
 
 DATASET_COLOR = {"awi": "#00ace5",
                  "ucl": "#000000",
@@ -702,10 +705,10 @@ class GridCollectionGraph(ClassTemplate):
             for col in np.arange(n_cols):
                 if index > n_datasets:
                     continue
-
                 self.ax_arr.append(plt.subplot2grid(panels, (col, row)))
                 index += 1
-        plt.subplots_adjust(left=0.1, right=0.9, top=0.95, bottom=0.15,
+
+        plt.subplots_adjust(left=0.08, right=0.92, top=0.97, bottom=0.11,
                             wspace=0.1, hspace=0.1)
 
         bg = self.fig.add_axes([0, 0, 1, 1])
@@ -723,27 +726,62 @@ class GridCollectionGraph(ClassTemplate):
         dataset = self._gc.get_dataset(dataset_id, self._period_id)
         nodata_lons, nodata_lats = dataset.longitude, dataset.latitude
 
-        cmap = plt.get_cmap("plasma")
+        cmap = plt.get_cmap("inferno")
+        map_bg_color = cmap(0)
 
         for i, dataset_id in enumerate(self._gc.dataset_ids):
             ax = self.ax_arr[i]
             ax.set_zorder(100)
-            ax.set_title(dataset_id.replace("_", " "), fontsize=14)
+            ax.set_title(dataset_id.replace("_", " "), fontsize=16)
             dataset = self._gc.get_dataset(dataset_id, self._period_id)
             if dataset is not None:
                 lons, lats = dataset.longitude, dataset.latitude
                 scatter_props = dict(c=dataset.thickness, vmin=0, vmax=5,
-                                     s=20, edgecolors="0.9", lw=0.1,
+                                     s=20, edgecolors="0.9", lw=0.2,
                                      cmap=cmap)
-                GridParameterMap(ax, lons, lats, scatter_props=scatter_props)
+                GridParameterMap(ax, lons, lats, map_bg=map_bg_color,
+                                 scatter_props=scatter_props)
             else:
-                GridParameterMap(ax, nodata_lons, nodata_lats)
+                GridParameterMap(ax, nodata_lons, nodata_lats,
+                                 map_bg=map_bg_color)
 
-    def _add_metadata(self):
-        pass
+        # Add colorbar
+        x0 = self.ax_arr[0].get_position().x0
+        width = self.ax_arr[0].get_position().x1 - x0
+        cb_ax = self.fig.add_axes([x0, 0.07, width, 0.02])
+        sm = plt.cm.ScalarMappable(cmap=cmap,
+                                   norm=plt.Normalize(vmin=0, vmax=5))
+        sm._A = []
+        cb_ax_kwargs = {
+            'loc': 3, 'bbox_to_anchor': (0.0, 0.0, 1, 1),
+            'width': "100%", 'height': "100%",
+            'bbox_transform': cb_ax.transAxes,
+            'borderpad': 0}
+        ticks = MultipleLocator(1)
+        axins = inset_axes(cb_ax, **cb_ax_kwargs)
+        axins.set_zorder(400)
+        cb = plt.colorbar(sm, cax=axins, ticks=ticks, orientation="horizontal")
+        cl = plt.getp(cb.ax, 'xmajorticklabels')
+        plt.setp(cl, fontsize=16)
+        cb.set_label("Sea Ice Thickness", fontsize=16)
+        cb.outline.set_linewidth(0.5)
+        cb.outline.set_alpha(0.0)
+        for t in cb.ax.get_yticklines():
+            t.set_color("1.0")
+        cb.ax.tick_params('both', length=0.1, which='major', pad=10)
 
     def _save_to_file(self):
         plt.savefig(self.output_filename, dpi=300)
+
+    def _add_metadata(self):
+
+        plt.annotate("Region: %s" % self._gc.region_id, (0.5, 0.05),
+                     xycoords="figure fraction", color="0.2", fontsize=20,
+                     zorder=400)
+
+        plt.annotate("Period: %s" % self._period_id, (0.8, 0.05),
+                     xycoords="figure fraction", color="0.2", fontsize=20,
+                     zorder=400)
 
     @property
     def output_filename(self):
@@ -756,16 +794,20 @@ class GridCollectionGraph(ClassTemplate):
 
 class GridParameterMap(object):
 
-    def __init__(self, ax, lons, lats, basemap_args=None, scatter_props=None):
+    def __init__(self, ax, lons, lats, basemap_args=None,
+                 map_bg=None, scatter_props=None):
         """ Generate a simple map with orbit location """
+
+        if map_bg is None:
+            map_bg = "0.5"
 
         if basemap_args is None:
             basemap_args = get_basemap_args_from_positions(
-                    lons,  lats, scale=1.05, res="i")
+                    lons,  lats, scale=1.00, res="l")
         m = Basemap(ax=ax, **basemap_args)
-        m.drawmapboundary(linewidth=0.1, fill_color='0.2', zorder=200)
+        m.drawmapboundary(linewidth=0.2, fill_color=map_bg, zorder=200)
         m.drawcoastlines(linewidth=0.25, color="0.8")
-        m.fillcontinents(color="0.3", lake_color="0.3", zorder=100)
+        m.fillcontinents(color="0.5", lake_color="0.5", zorder=100)
 
         if scatter_props is not None:
             x, y = m(lons, lats)
