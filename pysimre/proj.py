@@ -86,10 +86,10 @@ class SIMREGridDefinition(ClassTemplate):
     def grid_indices(self, longitude, latitude):
         """ Computes the grid indices the given lon/lat pairs would be sorted
         into (no clipping) """
-        projx, projy = self.proj(longitude, latitude)
+        projx, projy = self.get_projection_coordinates(longitude, latitude)
         extent = self.extent
-        xi = np.floor((projx + extent.xsize/2.0)/extent.dx)
-        yj = np.floor((projy + extent.ysize/2.0)/extent.dy)
+        xi = np.floor((projx + extent.xsize/2.0)/extent.dx).astype(int)
+        yj = np.floor((projy + extent.ysize/2.0)/extent.dy).astype(int)
         return xi, yj
 
     def get_grid_coordinates(self, mode="center"):
@@ -106,6 +106,10 @@ class SIMREGridDefinition(ClassTemplate):
         xx, yy = np.meshgrid(x, y)
         lon, lat = self.proj(xx, yy, inverse=True)
         return lon, lat
+
+    def get_projection_coordinates(self, longitude, latitude):
+        """ Returns the projection coordinates x, y """
+        return self.proj(longitude, latitude)
 
     def set_extent(self, **kwargs):
         self._extent_dict = kwargs
