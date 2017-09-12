@@ -470,3 +470,16 @@ class GridCollection(ClassTemplate):
     @property
     def n_periods(self):
         return len(self.period_ids)
+
+    @property
+    def thickness_range(self):
+        min_vals, max_vals = [], []
+        for dataset_id in self.dataset_ids:
+            period_ids = sorted(self._datasets[dataset_id].keys())
+            for period_id in period_ids:
+                data = self.get_dataset(dataset_id, period_id)
+                min_vals.append(np.nanmin(data.thickness))
+                max_vals.append(np.nanmax(data.thickness))
+        return np.nanmin(min_vals), np.nanmax(max_vals)
+
+

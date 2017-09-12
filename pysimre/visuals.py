@@ -726,8 +726,10 @@ class GridCollectionGraph(ClassTemplate):
         dataset = self._gc.get_dataset(dataset_id, self._period_id)
         nodata_lons, nodata_lats = dataset.longitude, dataset.latitude
 
-        cmap = plt.get_cmap("inferno")
-        map_bg_color = cmap(0)
+        cmap = plt.get_cmap("plasma")
+        map_bg_color = "0.2"
+        sit_min, sit_max = self._gc.thickness_range
+        vmax = int(np.ceil(sit_max))
 
         for i, dataset_id in enumerate(self._gc.dataset_ids):
             ax = self.ax_arr[i]
@@ -736,7 +738,7 @@ class GridCollectionGraph(ClassTemplate):
             dataset = self._gc.get_dataset(dataset_id, self._period_id)
             if dataset is not None:
                 lons, lats = dataset.longitude, dataset.latitude
-                scatter_props = dict(c=dataset.thickness, vmin=0, vmax=5,
+                scatter_props = dict(c=dataset.thickness, vmin=0, vmax=vmax,
                                      s=20, edgecolors="0.9", lw=0.2,
                                      cmap=cmap)
                 GridParameterMap(ax, lons, lats, map_bg=map_bg_color,
@@ -750,7 +752,7 @@ class GridCollectionGraph(ClassTemplate):
         width = self.ax_arr[0].get_position().x1 - x0
         cb_ax = self.fig.add_axes([x0, 0.07, width, 0.02])
         sm = plt.cm.ScalarMappable(cmap=cmap,
-                                   norm=plt.Normalize(vmin=0, vmax=5))
+                                   norm=plt.Normalize(vmin=0, vmax=vmax))
         sm._A = []
         cb_ax_kwargs = {
             'loc': 3, 'bbox_to_anchor': (0.0, 0.0, 1, 1),
