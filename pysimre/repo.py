@@ -366,8 +366,7 @@ class SimreDatasetCatalogue(ClassTemplate):
 
     def get_simre_grid_filepath(self, dataset_id, region_id, period_id):
         rg_info = self.repo_config.dataset.region
-        subfolders = [rg_info.subfolder,
-                      region_id, period_id]
+        subfolders = [rg_info.subfolder, region_id]
         directory = os.path.join(self.path, *subfolders)
         filename = "SIMRE-%s-%s-%s.nc" % (dataset_id, region_id, period_id)
         return os.path.join(directory, filename)
