@@ -500,10 +500,6 @@ class SourceGridBaseClass(ClassTemplate):
         data_ease2[np.where(data_ease2.mask)] = np.nan
         self.thickness = data_ease2
 
-        # XXX: It is not yet understood why this is necessary
-        if self.dataset_id == "nasa_gsfc":
-            self.thickness = np.flipud(self.thickness)
-
     def resample_sourcepoints_to_targetgrid(self):
         """ Use gridding to populate the target grid with gridded source
         data points given as a list of lon, lat, thickness """
@@ -857,6 +853,7 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
         super(NasaGSFCGridThickness, self).__init__(*args)
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
+        self.thickness = np.flipud(self.thickness)
 
     def read_nc(self):
         data = ReadNC(self.filename)
