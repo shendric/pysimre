@@ -809,7 +809,7 @@ class GridParameterMap(object):
 
         if basemap_args is None:
             basemap_args = get_basemap_args_from_positions(
-                    lons,  lats, scale=1.00, res="l")
+                    lons,  lats, scale=1.00, res="i")
         m = Basemap(ax=ax, **basemap_args)
         m.drawmapboundary(linewidth=0.2, fill_color=map_bg, zorder=200)
         m.drawcoastlines(linewidth=0.25, color="0.8")
@@ -817,7 +817,7 @@ class GridParameterMap(object):
 
         if scatter_props is not None:
             x, y = m(lons, lats)
-            m.scatter(x, y, **scatter_props)
+            m.scatter(x, y, zorder=150, **scatter_props)
         else:
             lx, ly = m(basemap_args["lon_0"], basemap_args["lat_0"])
             ax.annotate("No Data", (lx, ly), xycoords='data',
