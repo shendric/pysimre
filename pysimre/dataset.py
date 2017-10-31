@@ -453,13 +453,15 @@ def GridSourceData(class_name, filepath, repo_dir, *ids):
     except KeyError:
         print "Unkown class in pysimre.dataset: %s" % str(class_name)
         sys.exit()
+
     # Return the Dataset class
     return dataset
 
 
 class SourceGridBaseClass(ClassTemplate):
 
-    def __init__(self, filename, repo_dir, dataset_id, region_id, period_id):
+    def __init__(self, filename, repo_dir, dataset_id, region_id, period_id,
+                 apply_land_mask=True):
         super(SourceGridBaseClass, self).__init__(self.__class__.__name__)
 
         # Source metadata
@@ -468,6 +470,7 @@ class SourceGridBaseClass(ClassTemplate):
         self.region_id = region_id
         self.dataset_id = dataset_id
         self.repo_dir = repo_dir
+        self.apply_land_mask = apply_land_mask
         self.source_longitude = None
         self.source_latitude = None
         self.source_thickness = None
@@ -565,6 +568,38 @@ class SourceGridBaseClass(ClassTemplate):
                 thickness[yj, xi] = np.nanmean(stacked_data)
 
         self.thickness = thickness
+
+    def apply_target_grid_masks(self):
+        """ Apply a fixed mask for the target grid. In the moment this
+        is only a land sea mask to prevent issues with data being interpolated
+        to areas with land. """
+
+        # Do nothing if flag not set
+        if not self.apply_land_mask:
+            return
+
+        # Get the name of teh land mask grid file:
+        mask_filename = "landsea_"+self.griddef.grid_id+".nc"
+        mask_path = os.path.join(self.repo_dir, "masks", mask_filename)
+
+        # Read the mask file
+        # Note: the flag in the land mask file is 0: sea, 1: mixed, 2: land
+        landmask = ReadNC(mask_path)
+
+        # Apply the mask
+        # (do not account for pixel with land or partial land cover)
+        self.thickness[np.where(landmask.mask > 0)] = np.nan
+
+#        import matplotlib.pyplot as plt
+#
+#        plt.figure("thickness")
+#        plt.imshow(self.thickness)
+#
+#        plt.figure("landmask")
+#        plt.imshow(landmask.mask)
+#
+#        plt.show()
+#        stop
 
     @property
     def parameter_stack(self):
@@ -769,6 +804,7 @@ class AWIGridThickness(SourceGridBaseClass):
         super(AWIGridThickness, self).__init__(*args)
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
+        self.apply_target_grid_masks()
 
     def read_nc(self):
         data = ReadNC(self.filename)
@@ -780,6 +816,7 @@ class CCICDRGridThickness(SourceGridBaseClass):
     def __init__(self, *args):
         super(CCICDRGridThickness, self).__init__(*args)
         self.read_nc()
+        self.apply_target_grid_masks()
 
     def read_nc(self):
         data = ReadNC(self.filename)
@@ -802,6 +839,7 @@ class CS2SMOSGridThickness(SourceGridBaseClass):
         super(CS2SMOSGridThickness, self).__init__(*args)
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
+        self.apply_target_grid_masks()
 
     def read_nc(self):
         thickness_grids = []
@@ -832,6 +870,7 @@ class LEGOSGridThickness(SourceGridBaseClass):
         super(LEGOSGridThickness, self).__init__(*args)
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
+        self.apply_target_grid_masks()
 
     def read_nc(self):
         data = ReadNC(self.filename)
@@ -854,6 +893,7 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
         self.thickness = np.flipud(self.thickness)
+        self.apply_target_grid_masks()
 
     def read_nc(self):
         data = ReadNC(self.filename)
@@ -870,6 +910,7 @@ class NasaJPLGridThickness(SourceGridBaseClass):
         self.read_ascii()
         if not self.error.status:
             self.resample_sourcepoints_to_targetgrid()
+            self.apply_target_grid_masks()
 
     def read_ascii(self):
         # NASA JPL data comes as one ascii file per region/period
@@ -900,6 +941,7 @@ class UCLGridThickness(SourceGridBaseClass):
         self.read_ascii()
         if not self.error.status:
             self.grid_sourcepoints_to_targetgrid()
+            self.apply_target_grid_masks()
 
     def read_ascii(self):
         # UCL data comes as one ascii file per day for each region/period
