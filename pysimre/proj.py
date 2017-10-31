@@ -95,14 +95,7 @@ class SIMREGridDefinition(ClassTemplate):
         """ Returns longitude/latitude points for each grid cell
         Note: mode keyword only for future use. center coordinates are
         returned by default """
-        x0, y0 = self.extent.xoff, self.extent.yoff
-        xsize, ysize = self.extent.xsize, self.extent.ysize
-        numx, numy = self.extent.numx, self.extent.numy
-        xmin, xmax = x0-(xsize/2.), x0+(xsize/2.)
-        ymin, ymax = y0-ysize/2., y0+ysize/2.
-        x = np.linspace(xmin, xmax, num=numx)
-        y = np.linspace(ymin, ymax, num=numy)
-        xx, yy = np.meshgrid(x, y)
+        xx, yy = np.meshgrid(self.xc, self.yc)
         lon, lat = self.proj(xx, yy, inverse=True)
         return lon, lat
 
@@ -135,3 +128,17 @@ class SIMREGridDefinition(ClassTemplate):
     @property
     def extent(self):
         return TreeDict.fromdict(self._extent_dict, expand_nested=True)
+
+    @property
+    def xc(self):
+        x0, numx, xsize, dx = (self.extent.xoff, self.extent.numx,
+                               self.extent.xsize, self.extent.dx)
+        xmin, xmax = x0-(xsize/2.)+dx/2., x0+(xsize/2.)-dx/2.
+        return np.linspace(xmin, xmax, num=numx)
+
+    @property
+    def yc(self):
+        y0, numy, ysize, dy = (self.extent.yoff, self.extent.numy,
+                               self.extent.ysize, self.extent.dy)
+        ymin, ymax = y0-(ysize/2.)+dy/2., y0+(ysize/2.)-dy/2.
+        return np.linspace(ymin, ymax, num=numy)
