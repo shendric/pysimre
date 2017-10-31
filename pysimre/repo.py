@@ -8,6 +8,7 @@ import glob
 import os
 import re
 
+
 class SimreRepository(ClassTemplate):
     """ Access container to local SIMBIE data repository """
 
@@ -58,7 +59,7 @@ class SimreRepository(ClassTemplate):
             # Add the region grid
             # (which is aware of dataset_id, region_id & period_id)
             for simre_netcdf in simre_netcdfs:
-                region_grid = RegionGrid(region_id)
+                region_grid = RegionGrid(self._local_path, region_id)
                 region_grid.from_netcdf(simre_netcdf)
                 grid_collection.add_dataset(region_grid)
 
@@ -221,7 +222,8 @@ class SimreRepository(ClassTemplate):
         self.log.info("Retrieving grid source data [%s.%s.%s]" % tuple(ids))
 
         # Get the source data on the SIMRE grid
-        source_data_grid = GridSourceData(pyclass, filepath, *ids)
+        source_data_grid = GridSourceData(
+                pyclass, filepath, self._local_path, *ids)
 
         # Check for errors while retrieving and gridding data
         if not source_data_grid.error.status:
