@@ -569,7 +569,7 @@ class SourceGridBaseClass(ClassTemplate):
 
         self.thickness = thickness
 
-    def apply_target_grid_masks(self):
+    def apply_target_grid_masks(self, debug=False):
         """ Apply a fixed mask for the target grid. In the moment this
         is only a land sea mask to prevent issues with data being interpolated
         to areas with land. """
@@ -590,16 +590,18 @@ class SourceGridBaseClass(ClassTemplate):
         # (do not account for pixel with land or partial land cover)
         self.thickness[np.where(landmask.mask > 0)] = np.nan
 
-#        import matplotlib.pyplot as plt
-#
-#        plt.figure("thickness")
-#        plt.imshow(self.thickness)
-#
-#        plt.figure("landmask")
-#        plt.imshow(landmask.mask)
-#
-#        plt.show()
-#        stop
+        if debug:
+
+            import matplotlib.pyplot as plt
+
+            plt.figure("thickness")
+            plt.imshow(self.thickness)
+
+            plt.figure("landmask")
+            plt.imshow(landmask.mask)
+
+            plt.show()
+            stop
 
     @property
     def parameter_stack(self):
