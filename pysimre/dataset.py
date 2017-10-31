@@ -444,12 +444,12 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
 # %% Classes for gridded datasets
 
 
-def GridSourceData(class_name, filepath, *ids):
+def GridSourceData(class_name, filepath, repo_dir, *ids):
     """ Getter function for the gridded source data. *ids is the
     array [dataset_id, region_id, period_id] """
 
     try:
-        dataset = globals()[class_name](filepath, *ids)
+        dataset = globals()[class_name](filepath, repo_dir, *ids)
     except KeyError:
         print "Unkown class in pysimre.dataset: %s" % str(class_name)
         sys.exit()
@@ -459,7 +459,7 @@ def GridSourceData(class_name, filepath, *ids):
 
 class SourceGridBaseClass(ClassTemplate):
 
-    def __init__(self, filename, dataset_id, region_id, period_id):
+    def __init__(self, filename, repo_dir, dataset_id, region_id, period_id):
         super(SourceGridBaseClass, self).__init__(self.__class__.__name__)
 
         # Source metadata
@@ -467,6 +467,7 @@ class SourceGridBaseClass(ClassTemplate):
         self.period_id = period_id
         self.region_id = region_id
         self.dataset_id = dataset_id
+        self.repo_dir = repo_dir
         self.source_longitude = None
         self.source_latitude = None
         self.source_thickness = None
@@ -480,7 +481,7 @@ class SourceGridBaseClass(ClassTemplate):
 
     def extract_test_region(self, region_id):
         """ Returns a data object for a given region """
-        region_data = RegionGrid(region_id)
+        region_data = RegionGrid(self.repo_dir, region_id)
         region_data.from_source_grid(self)
         return region_data
 
@@ -593,8 +594,9 @@ class SourceGridBaseClass(ClassTemplate):
 
 class RegionGrid(ClassTemplate):
 
-    def __init__(self, region_id):
+    def __init__(self, repo_dir, region_id):
         super(RegionGrid, self).__init__(self.__class__.__name__)
+        self._repo_dir = repo_dir
         self._region_id = region_id
         self._dataset_id = None
         self._period_id = None
@@ -612,7 +614,7 @@ class RegionGrid(ClassTemplate):
         """ Get the subset from the source grid """
 
         # Get the definition
-        region_def = get_region_def(self.region_id)
+        region_def = get_region_def(self.repo_dir, self.region_id)
 
         # Get indices in source grid that match region
         source = self._source_grid
@@ -750,6 +752,10 @@ class RegionGrid(ClassTemplate):
     @property
     def source_filename(self):
         return str(self._source_filename)
+
+    @property
+    def repo_dir(self):
+        return self._repo_dir
 
 
 class AWIGridThickness(SourceGridBaseClass):

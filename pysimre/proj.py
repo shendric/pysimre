@@ -35,11 +35,10 @@ def get_target_grid():
     return grid.get_grid_coordinates()
 
 
-def get_region_def(region_id):
+def get_region_def(simre_repo_dir, region_id):
     """ Returns the definition of the regions, e.g. lon/lat limits, labels.
     (Taken from resources/test_region_definition.yaml) """
-    config_path = os.path.join(LOCAL_PATH_RESOURCES,
-                               "test_region_definition.yaml")
+    config_path = os.path.join(simre_repo_dir, "test_region_definition.yaml")
     region_config = parse_config_file(config_path)
     try:
         return region_config[region_id]
