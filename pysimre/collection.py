@@ -5,11 +5,13 @@ Created on Fri Sep 08 11:37:27 2017
 @author: Stefan
 """
 
-from pysimre.misc import ClassTemplate
+from pysimre.misc import ClassTemplate, pid2dt
 from pysimre.dataset import OrbitThicknessDataset
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+
+from itertools import product
 
 import numpy as np
 
@@ -447,6 +449,37 @@ class GridCollection(ClassTemplate):
         except KeyError:
             return None
 
+    def get_ensemble(self, month):
+        """ Returns an ensemble for the given month """
+
+        # Get a list of applicable periods (e.g. all periods that include
+        # defined month)
+        ensemble_periods = self.get_ensemble_periods(month)
+
+        # Create the ensemble object
+        ensemble = GridDataEnsemble(self.region_id, ensemble_periods)
+
+        # Add all applicable datasets to the ensemble
+        ensemble_items = product(self.dataset_ids, ensemble_periods)
+        for dataset_id, period_id in ensemble_items:
+            try:
+                ensemble.add_dataset(self._datasets[dataset_id][period_id])
+            except KeyError:
+                # Might not have a dataset for this period
+                continue
+
+        return ensemble
+
+    def get_ensemble_periods(self, month):
+        """ Returns a list of all periods in the collection
+        for a defined month """
+
+        month_str = "%02g" % month
+
+        def is_month(p): return p.split("-")[1] == month_str
+
+        return sorted([p for p in self.period_ids if is_month(p)])
+
     @property
     def dataset_ids(self):
         """ Return a list of all dataset ids in collection """
@@ -483,3 +516,87 @@ class GridCollection(ClassTemplate):
         return np.nanmin(min_vals), np.nanmax(max_vals)
 
 
+class GridDataEnsemble(ClassTemplate):
+
+    def __init__(self, region_id, period_ids):
+        """ Create a ensemble of thickness grid for a region and a series of
+        periods """
+        super(GridDataEnsemble, self).__init__(self.__class__.__name__)
+        self._region_id = region_id
+        self._period_ids = period_ids
+        self._members = {}
+        for period_id in self.period_ids:
+            self._members[period_id] = {}
+
+    def add_dataset(self, dataset):
+        """ Add a datset (defined by dataset_id, period_id) to the ensemble
+        with sanity checks """
+
+        if not dataset.period_id in self.period_ids:
+            msg = "Outside ensemble reference periods [%s, %s, %s], ignoring"
+            msg = msg % (dataset.dataset_id, dataset.region_id,
+                         dataset.period_id)
+            self.log.warning(msg)
+            return
+
+        if not dataset.region_id == self.region_id:
+            msg = "Outside ensemble reference periods [%s, %s, %s], ignoring"
+            msg = msg % (dataset.dataset_id, dataset.region_id,
+                         dataset.period_id)
+            self.log.warning(msg)
+            return
+
+        # check passed -> add to ensemble
+        ensemble_item = GridEnsembleItem(dataset)
+        self._members[dataset.period_id][dataset.dataset_id] = ensemble_item
+
+    def get_dataset_mean(self, dataset_id):
+        """ Returns a date object and mean value for the a given dataset id
+        in the ensemble time series """
+        date = pid2dt(self.period_ids)
+        mean = []
+        for period_id in self.period_ids:
+            try:
+                ensemble_item = self._members[period_id][dataset_id]
+                mean_val = ensemble_item.mean
+            except KeyError:
+                mean_val = np.nan
+            mean.append(mean_val)
+        return date, mean
+
+    @property
+    def region_id(self):
+        return str(self._region_id)
+
+    @property
+    def period_ids(self):
+        return list(self._period_ids)
+
+    @property
+    def dataset_ids(self):
+        dataset_ids = []
+        for period_id in self.period_ids:
+            dataset_ids.extend(sorted(self._members[period_id].keys()))
+        return sorted(np.unique(dataset_ids))
+
+
+class GridEnsembleItem(ClassTemplate):
+
+    def __init__(self, dataset):
+        self._dataset = dataset
+
+    @property
+    def dataset_id(self):
+        return self._dataset.dataset_id
+
+    @property
+    def period_id(self):
+        return self._dataset.period_id
+
+    @property
+    def region_id(self):
+        return self._dataset.region_id
+
+    @property
+    def mean(self):
+        return np.nanmean(self._dataset.thickness)

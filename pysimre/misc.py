@@ -7,6 +7,7 @@ Created on Wed Sep 06 17:02:56 2017
 
 from treedict import TreeDict
 from logbook import Logger, StreamHandler
+from datetime import datetime
 import yaml
 import sys
 import os
@@ -111,3 +112,14 @@ def file_basename(filename, fullpath=False):
         basename = os.path.join(strarr[0], basename)
     # XXX: Sketchy, needs better solution (with access to os documentation)
     return basename
+
+
+def pid2dt(period_ids, center=True, numerical=False):
+    """ concerts period_id(s) [yyyy-mm] into a datetime object or a numerical
+    representation of the datetime """
+    day = 15
+    dt = []
+    for period_id in period_ids:
+        year, month = int(period_id[0:4]), int(period_id[6:8])
+        dt.append(datetime(year, month, day))
+    return dt
