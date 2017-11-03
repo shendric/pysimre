@@ -26,6 +26,8 @@ from matplotlib.path import Path
 from matplotlib.ticker import MultipleLocator
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
+from colorsys import rgb_to_hls, hls_to_rgb
+
 
 DATASET_COLOR = {"awi": "#00ace5",
                  "ucl": "#000000",
@@ -42,6 +44,12 @@ DATASET_MARKER = {"awi": "D",
                   "nasa_jpl": "H",
                   "nasa_gsfc": "d",
                   "cs2smos": "<"}
+
+REGION_ID_NAME = {"arc01_fyi": "First Year Ice (Laptev Sea)",
+                  "arc02_myi": "Multi Year Ice (Lincoln Sea)",
+                  "arc03_mixed": "Mixed Ice (Beaufort Sea)"}
+
+MONTH_NAME = {3: "March", 11: "November"}
 
 
 # %% Orbit Plot Classes
@@ -847,10 +855,10 @@ class GridRegionEnsembleGraph(ClassTemplate):
 
         plt.ioff()
 
-        label = "$Region Id$: %s,  $Month$: %02g" % (ensbl.region_id, month)
+        label = "%s - %s" % (REGION_ID_NAME[ensbl.region_id], MONTH_NAME[month])
 
         # Make the plot
-        fig = plt.figure(label, figsize=(12, 6))
+        fig = plt.figure(figsize=(12, 6))
         ax = plt.gca()
 
         for i, dataset_id in enumerate(ensbl.dataset_ids):
@@ -858,13 +866,16 @@ class GridRegionEnsembleGraph(ClassTemplate):
             marker = DATASET_MARKER.get(dataset_id, "o")
             date, mean = ensbl.get_dataset_mean(dataset_id)
             ax.scatter(date, mean, color=color, marker=marker)
-            ax.plot(date, mean, label=dataset_id, color=color)
-            # ax.title(label)
+            ax.plot(date, mean, label=dataset_id, color=color, alpha=0.75)
 
-        ax.legend()
+        plt.title(label)
+        plt.legend()
+        plt.ylabel("Mean Sea Ice Thickness (m)")
         set_axes_style(fig, ax)
 
+        ax.set_ylim(0, 5)
         self._save_to_file()
+        plt.close(fig)
 
     def _save_to_file(self):
         plt.savefig(self.output_filename, dpi=300)
