@@ -49,6 +49,15 @@ REGION_ID_NAME = {"arc01_fyi": "First Year Ice (Laptev Sea)",
                   "arc02_myi": "Multi Year Ice (Lincoln Sea)",
                   "arc03_mixed": "Mixed Ice (Beaufort Sea)"}
 
+DATASET_ID_NAME = {"awi": "AWI",
+                   "ucl": "UCL/CPOM",
+                   "legos": "LEGOS",
+                   "ccicdr": "ESA CCI",
+                   "nasa_jpl": "NASA-JPL",
+                   "nasa_gsfc": "NASA-GSFC",
+                   "cs2smos": "CS2/SMOS"}
+
+
 MONTH_NAME = {3: "March", 11: "November"}
 
 
@@ -858,24 +867,49 @@ class GridRegionEnsembleGraph(ClassTemplate):
         label = "%s - %s" % (REGION_ID_NAME[ensbl.region_id], MONTH_NAME[month])
 
         # Make the plot
-        fig = plt.figure(figsize=(12, 6))
+        fig = plt.figure(figsize=(8, 5))
         ax = plt.gca()
+        ax.set_position([0.1, 0.1, 0.65, 0.8])
 
+        dataset_color = []
         for i, dataset_id in enumerate(ensbl.dataset_ids):
-            color = DATASET_COLOR[dataset_id]
-            marker = DATASET_MARKER.get(dataset_id, "o")
-            date, mean = ensbl.get_dataset_mean(dataset_id)
-            ax.scatter(date, mean, color=color, marker=marker)
-            ax.plot(date, mean, label=dataset_id, color=color, alpha=0.75)
 
-        plt.title(label)
-        plt.legend()
+            color = DATASET_COLOR[dataset_id]
+            dataset_color.append(color)
+            marker = DATASET_MARKER.get(dataset_id, "o")
+            dataset_name = DATASET_ID_NAME[dataset_id]
+
+            mean = ensbl.get_dataset_mean(dataset_id)
+            ax.plot(ensbl.period_dts, mean, "-"+marker,
+                       label=dataset_name,
+                       color=color, **self.dataset_props)
+
+        ax.plot(ensbl.period_dts, ensbl.ensemble_mean,
+                **self.ensemble_mean_props)
+
+        plt.title(label, fontsize=16)
+        leg = plt.legend(loc="lower left", bbox_to_anchor=(1.0, 0.0),
+                         fontsize=12)
+
+        for i, text in enumerate(leg.get_texts()):
+            plt.setp(text, color=dataset_color[i])
+
+        plt.xticks(ensbl.period_dts)
+
         plt.ylabel("Mean Sea Ice Thickness (m)")
         set_axes_style(fig, ax)
 
         ax.set_ylim(0, 5)
         self._save_to_file()
         plt.close(fig)
+
+    @property
+    def dataset_props(self):
+        return dict(alpha=0.5, mec="none", zorder=211, lw=0.5, ls="dashed")
+
+    @property
+    def ensemble_mean_props(self):
+        return dict(color="black", lw=2, alpha=0.5, zorder=220)
 
     def _save_to_file(self):
         plt.savefig(self.output_filename, dpi=300)

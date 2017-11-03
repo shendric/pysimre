@@ -553,16 +553,29 @@ class GridDataEnsemble(ClassTemplate):
     def get_dataset_mean(self, dataset_id):
         """ Returns a date object and mean value for the a given dataset id
         in the ensemble time series """
-        date = pid2dt(self.period_ids)
         mean = []
         for period_id in self.period_ids:
-            try:
-                ensemble_item = self._members[period_id][dataset_id]
-                mean_val = ensemble_item.mean
-            except KeyError:
-                mean_val = np.nan
+            mean_val = self.get_dataset_period_mean(dataset_id, period_id)
             mean.append(mean_val)
-        return date, mean
+        return mean
+
+    def get_dataset_period_mean(self, dataset_id, period_id):
+        try:
+            ensemble_item = self._members[period_id][dataset_id]
+            mean_val = ensemble_item.mean
+        except KeyError:
+            mean_val = np.nan
+        return mean_val
+
+    @property
+    def ensemble_mean(self):
+        ensemble_mean = []
+        dids = self.dataset_ids
+        for period_id in self.period_ids:
+            data_mean_vals = [self.get_dataset_period_mean(did, period_id) \
+                              for did in dids]
+            ensemble_mean.append(np.nanmean(data_mean_vals))
+        return ensemble_mean
 
     @property
     def region_id(self):
@@ -571,6 +584,10 @@ class GridDataEnsemble(ClassTemplate):
     @property
     def period_ids(self):
         return list(self._period_ids)
+
+    @property
+    def period_dts(self):
+        return pid2dt(self.period_ids)
 
     @property
     def dataset_ids(self):
