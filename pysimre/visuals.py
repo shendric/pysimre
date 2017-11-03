@@ -29,13 +29,19 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 DATASET_COLOR = {"awi": "#00ace5",
                  "ucl": "#000000",
-                 "ccicdr": "#00dc6e",
-                 "nasa_jpl": "#ff0e0e"}
+                 "legos": "#008000",
+                 "ccicdr": "#ff6400",
+                 "nasa_jpl": "#ff0e0e",
+                 "nasa_gsfc": "#a52a2a",
+                 "cs2smos": "#7027c3"}
 
 DATASET_MARKER = {"awi": "D",
                   "ucl": "s",
+                  "legos": "v",
                   "ccicdr": "o",
-                  "nasa_jpl": "H"}
+                  "nasa_jpl": "H",
+                  "nasa_gsfc": "d",
+                  "cs2smos": "<"}
 
 
 # %% Orbit Plot Classes
@@ -823,6 +829,46 @@ class GridParameterMap(object):
             ax.annotate("No Data", (lx, ly), xycoords='data',
                         ha="center", va="center", color="0.8", fontsize=20,
                         zorder=400)
+
+
+class GridRegionEnsembleGraph(ClassTemplate):
+
+    bg_color_fig = "0.96"
+
+    def __init__(self, ensbl, month, output_path):
+        super(GridRegionEnsembleGraph, self).__init__(self.__class__.__name__)
+
+        # Save input parameter
+        self._ensbl = ensbl
+        self._month = month
+        self._output_path = output_path
+        self.output_filename = os.path.join(
+                output_path, "%s_%02g.png" % (ensbl.region_id, month))
+
+        plt.ioff()
+
+        label = "$Region Id$: %s,  $Month$: %02g" % (ensbl.region_id, month)
+
+        # Make the plot
+        fig = plt.figure(label, figsize=(12, 6))
+        ax = plt.gca()
+
+        for i, dataset_id in enumerate(ensbl.dataset_ids):
+            color = DATASET_COLOR[dataset_id]
+            marker = DATASET_MARKER.get(dataset_id, "o")
+            date, mean = ensbl.get_dataset_mean(dataset_id)
+            ax.scatter(date, mean, color=color, marker=marker)
+            ax.plot(date, mean, label=dataset_id, color=color)
+            # ax.title(label)
+
+        ax.legend()
+        set_axes_style(fig, ax)
+
+        self._save_to_file()
+
+    def _save_to_file(self):
+        plt.savefig(self.output_filename, dpi=300)
+
 
 # %% utility functions
 
