@@ -864,7 +864,8 @@ class GridRegionEnsembleGraph(ClassTemplate):
 
         plt.ioff()
 
-        label = "%s - %s" % (REGION_ID_NAME[ensbl.region_id], MONTH_NAME[month])
+        label = "%s - %s" % (REGION_ID_NAME[ensbl.region_id],
+                             MONTH_NAME[month])
 
         # Make the plot
         fig = plt.figure(figsize=(8, 5))
@@ -880,26 +881,40 @@ class GridRegionEnsembleGraph(ClassTemplate):
             dataset_name = DATASET_ID_NAME[dataset_id]
 
             mean = ensbl.get_dataset_mean(dataset_id)
-            ax.plot(ensbl.period_dts, mean, "-"+marker,
-                       label=dataset_name,
-                       color=color, **self.dataset_props)
+            ax.plot(ensbl.period_dts, mean, "-"+marker, label=dataset_name,
+                    color=color, **self.dataset_props)
 
-        ax.plot(ensbl.period_dts, ensbl.ensemble_mean,
+        # Plot ensemble mean
+        ax.plot(ensbl.period_dts, ensbl.ensemble_mean, label="Ensemble Mean",
                 **self.ensemble_mean_props)
 
-        plt.title(label, fontsize=16)
+        # Fill in between ensemble min/max
+        emin, emax = ensbl.get_ensemble_minmax()
+        is_valid = np.where(np.isfinite(ensbl.ensemble_mean))
+
+        # Plot standard deviation envelope in the background
+        is_valid = np.where(np.isfinite(emin))
+        xs, ys = poly_between(ensbl.period_dts[is_valid],
+                              emin[is_valid], emax[is_valid])
+        ax.fill(xs, ys, **self.sdev_fill_props)
+
+        # Plot legend outside the axes and color text
         leg = plt.legend(loc="lower left", bbox_to_anchor=(1.0, 0.0),
                          fontsize=12)
-
         for i, text in enumerate(leg.get_texts()):
-            plt.setp(text, color=dataset_color[i])
+            if i < len(dataset_color)-1:
+                plt.setp(text, color=dataset_color[i])
 
+        # Plot Properties
+        plt.title(label, fontsize=16)
         plt.xticks(ensbl.period_dts)
-
         plt.ylabel("Mean Sea Ice Thickness (m)")
+        ax.set_ylim(0, 5)
+
+        # Plot style
         set_axes_style(fig, ax)
 
-        ax.set_ylim(0, 5)
+        # save plot
         self._save_to_file()
         plt.close(fig)
 
@@ -910,6 +925,14 @@ class GridRegionEnsembleGraph(ClassTemplate):
     @property
     def ensemble_mean_props(self):
         return dict(color="black", lw=2, alpha=0.5, zorder=220)
+
+    @property
+    def datasetl_props(self):
+        return dict(lw=0.5, alpha=0.25, zorder=210)
+
+    @property
+    def sdev_fill_props(self):
+        return dict(alpha=0.1, edgecolor="none", zorder=200)
 
     def _save_to_file(self):
         plt.savefig(self.output_filename, dpi=300)

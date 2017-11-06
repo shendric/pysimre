@@ -567,12 +567,22 @@ class GridDataEnsemble(ClassTemplate):
             mean_val = np.nan
         return mean_val
 
+    def get_ensemble_minmax(self):
+        emin, emax = [], []
+        dids = self.dataset_ids
+        for period_id in self.period_ids:
+            data_mean_vals = [self.get_dataset_period_mean(did, period_id)
+                              for did in dids]
+            emin.append(np.nanmin(data_mean_vals))
+            emax.append(np.nanmax(data_mean_vals))
+        return np.array(emin), np.array(emax)
+
     @property
     def ensemble_mean(self):
         ensemble_mean = []
         dids = self.dataset_ids
         for period_id in self.period_ids:
-            data_mean_vals = [self.get_dataset_period_mean(did, period_id) \
+            data_mean_vals = [self.get_dataset_period_mean(did, period_id)
                               for did in dids]
             ensemble_mean.append(np.nanmean(data_mean_vals))
         return ensemble_mean
@@ -587,7 +597,7 @@ class GridDataEnsemble(ClassTemplate):
 
     @property
     def period_dts(self):
-        return pid2dt(self.period_ids)
+        return np.array(pid2dt(self.period_ids))
 
     @property
     def dataset_ids(self):
