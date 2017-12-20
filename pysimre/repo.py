@@ -37,7 +37,7 @@ class SimreRepository(ClassTemplate):
     def get_orbit_collection(self, orbit_id):
         collection = OrbitCollection(orbit_id)
         orbit_dataset_list = [
-                ctlg.filepath_info(orbit_id) for ctlg in self.catalogue_list
+            ctlg.filepath_info(orbit_id) for ctlg in self.catalogue_list
                 if ctlg.has_orbit(orbit_id)]
         for dataset_id, filepath in orbit_dataset_list:
             collection.add_dataset(dataset_id, filepath)
@@ -88,11 +88,11 @@ class SimreRepository(ClassTemplate):
         # Get filename and create data object
         filepath = self.get_calval_filepath(orbit_id)
         calval_dataset = CalValDataset(
-                ctlg_info.pyclass,
-                filepath,
-                self.get_calval_dataset_id(orbit_id, source_id),
-                orbit_id,
-                metadata)
+            ctlg_info.pyclass,
+            filepath,
+            self.get_calval_dataset_id(orbit_id, source_id),
+            orbit_id,
+            metadata)
 
         return calval_dataset
 
@@ -152,11 +152,11 @@ class SimreRepository(ClassTemplate):
         has_product_file = os.path.isfile(calval_filepath)
         if has_product_file:
             return True
-        else:
-            msg = "Entry for %s exist in calval config, file does not"
-            msg = msg % orbit_id
-            self.log.warning(msg)
-            return False
+        
+        msg = "Entry for %s exist in calval config, file does not"
+        msg = msg % orbit_id
+        self.log.warning(msg)
+        return False
 
     def get_calval_filepath(self, orbit_id):
         ctlg = self._calval_catalogue.orbit_id_map
@@ -230,8 +230,7 @@ class SimreRepository(ClassTemplate):
         # Check for errors while retrieving and gridding data
         if not source_data_grid.error.status:
             return source_data_grid
-        else:
-            return None
+        return None
 
     @property
     def local_path(self):
@@ -248,7 +247,7 @@ class SimreRepository(ClassTemplate):
     @property
     def calval_config_filepath(self):
         calval_config_filepath = os.path.join(
-                self.local_calval_path, "simre_calval_products_config.yaml")
+            self.local_calval_path, "simre_calval_products_config.yaml")
         if not os.path.isfile(calval_config_filepath):
             msg = "Missing SIMRE calval config file. Expected: %s"
             msg = msg % str(calval_config_filepath)
@@ -359,8 +358,7 @@ class SimreDatasetCatalogue(ClassTemplate):
             files = rg_info.source_data.file_map[period_key]
             if isinstance(files, list):
                 return [os.path.join(file_path, f) for f in files]
-            else:
-                return os.path.join(file_path, files)
+            return os.path.join(file_path, files)
         except KeyError:
             return None
 
