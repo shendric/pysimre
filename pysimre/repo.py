@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
+import glob
+import os
+import re
+
+
+from pysimre import REGION_DEF_FILENAME
 
 from pysimre.collection import OrbitCollection, GridCollection
 from pysimre.dataset import CalValDataset, GridSourceData, RegionGrid
 from pysimre.misc import ClassTemplate, parse_config_file
-
-import glob
-import os
-import re
 
 
 class SimreRepository(ClassTemplate):
