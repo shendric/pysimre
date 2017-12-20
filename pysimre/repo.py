@@ -3,6 +3,8 @@ import glob
 import os
 import re
 
+import numpy as np
+from itertools import product
 
 from pysimre import REGION_DEF_FILENAME
 
@@ -20,6 +22,7 @@ class SimreRepository(ClassTemplate):
 
         self._dataset_catalogues = {}
         self._calval_catalogue = None
+        self._region_def = None
 
         # Validity check of local path
         if not os.path.isdir(local_path):
@@ -189,6 +192,10 @@ class SimreRepository(ClassTemplate):
         self._calval_catalogue = parse_config_file(self.calval_config_filepath)
         self._calval_catalogue.freeze()
 
+        # Get region ids from region definition file
+        self._region_def = parse_config_file(self.region_def_config_filepath)
+        self._region_def.freeze()
+
     def get_grid_source_dataset(self, dataset_id, region_id, period_id):
         """ Return gridded data on the SIMRE default grid for a given
         dataset and period """
@@ -256,6 +263,16 @@ class SimreRepository(ClassTemplate):
         return calval_config_filepath
 
     @property
+    def region_def_config_filepath(self):
+        region_def_config_filepath = os.path.join(self.local_path, REGION_DEF_FILENAME)
+        if not os.path.isfile(region_def_config_filepath):
+            msg = "Missing SIMRE region definition config file. Expected: %s"
+            msg = msg % str(region_def_config_filepath)
+            self.error.add_error("missing-calval-config", msg)
+            self.error.raise_on_error()
+        return region_def_config_filepath
+
+    @property
     def dataset_ids(self):
         """ dictionary of dataset object """
         return self._dataset_ids
@@ -282,6 +299,22 @@ class SimreRepository(ClassTemplate):
 
         return sorted([dsi for dsi in self.dataset_ids if has_grid(dsi)])
 
+    @property
+    def grid_region_ids(self):
+        region_ids = self._region_def.iterkeys(branch_mode="only")
+        return sorted(region_ids)
+
+    @property
+    def grid_period_ids(self):
+        period_ids = []
+        ctlg = self.dataset_catalogues
+        for dataset_id in self.dataset_ids:
+            period_ids.extend(ctlg[dataset_id].grid_period_ids)
+        return sorted(np.unique(period_ids))
+
+    @property
+    def ensemble_pool(self):
+        return product(self.grid_region_ids, self.grid_period_ids)
 
 class SimreDatasetCatalogue(ClassTemplate):
     """ A catalogue of all files in the SIMRE repository for a given
@@ -435,6 +468,17 @@ class SimreDatasetCatalogue(ClassTemplate):
             self.error.add_error("missing-dataset-config", msg)
             self.error.raise_on_error()
         return config_file_path
+
+    @property
+    def grid_period_ids(self):
+        """ Returns a list of periods. This is taken from the config file of the repository
+        (dataset.region.source_data.file_map) """
+        if not self.has_grid_data:
+            return []
+        grid_file_map = self.repo_config.dataset.region.source_data.file_map
+        period_keys = sorted(grid_file_map.keys())
+        period_ids = [key[-7:].replace('_', '-') for key in period_keys]
+        return period_ids
 
     @property
     def has_grid_data(self):
