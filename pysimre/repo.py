@@ -46,7 +46,7 @@ class SimreRepository(ClassTemplate):
             collection.add_dataset(dataset_id, filepath)
         return collection
 
-    def get_grid_collection(self, region_id):
+    def get_grid_collection(self, region_id, period_id=None):
         """ Returns a collection object for all gridded datasets
         (files of type SIMRE_$dataset_id$_$region_id$_$period_id%.nc) """
 
@@ -59,7 +59,9 @@ class SimreRepository(ClassTemplate):
             # Get the catalogue for the dataset and retrieve all
             # SIMRE grid files
             ctlg = self.dataset_catalogues[dataset_id]
-            simre_netcdfs = ctlg.get_simre_grid_netcdfs(region_id=region_id)
+
+            simre_netcdfs = ctlg.get_simre_grid_netcdfs(region_id=region_id, 
+                                                        period_id=period_id)
 
             # Add the region grid
             # (which is aware of dataset_id, region_id & period_id)
@@ -404,14 +406,13 @@ class SimreDatasetCatalogue(ClassTemplate):
         filename = "SIMRE-%s-%s-%s.nc" % (dataset_id, region_id, period_id)
         return os.path.join(directory, filename)
 
-    def get_simre_grid_netcdfs(self, region_id=None):
+    def get_simre_grid_netcdfs(self, region_id=None, period_id=None):
         """ Return a list of SIMRE grid netcdf files """
 
         # Config data
         rg_info = self.repo_config.dataset.region
 
         # Support function
-
         def is_netcdf(f): return re.search("SIMRE-(\S)*.nc", f)
 
         # Lookup directory
@@ -425,6 +426,8 @@ class SimreDatasetCatalogue(ClassTemplate):
 
         for root, dirs, files in os.walk(directory):
             netcdfs = [os.path.join(root, f) for f in files if is_netcdf(f)]
+            if period_id is not None:
+                netcdfs = [f for f in netcdfs if re.search(period_id, f)]
             simre_grid_netcdfs.extend(sorted(netcdfs))
 
         return simre_grid_netcdfs
