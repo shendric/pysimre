@@ -480,6 +480,12 @@ class GridCollection(ClassTemplate):
 
         return sorted([p for p in self.period_ids if is_month(p)])
 
+    def write_reconciled_netcdf(self):
+        """
+        Create a reconciled netcdf product for each period/region item
+        """
+        pass
+
     @property
     def dataset_ids(self):
         """ Return a list of all dataset ids in collection """
