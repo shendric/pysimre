@@ -6,7 +6,7 @@ import re
 import numpy as np
 from itertools import product
 
-from pysimre import REGION_DEF_FILENAME
+from pysimre import REGION_DEF_FILENAME, RECONCILED_GRID_SUB_FOLDERS
 
 from pysimre.collection import OrbitCollection, GridCollection
 from pysimre.dataset import CalValDataset, GridSourceData, RegionGrid
@@ -317,6 +317,10 @@ class SimreRepository(ClassTemplate):
     @property
     def ensemble_pool(self):
         return product(self.grid_region_ids, self.grid_period_ids)
+
+    @property
+    def reconciled_grid_dir(self):
+        return os.path.join(self.local_path, *RECONCILED_GRID_SUB_FOLDERS)
 
 class SimreDatasetCatalogue(ClassTemplate):
     """ A catalogue of all files in the SIMRE repository for a given
