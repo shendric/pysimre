@@ -480,11 +480,31 @@ class GridCollection(ClassTemplate):
 
         return sorted([p for p in self.period_ids if is_month(p)])
 
-    def write_reconciled_netcdf(self):
+    def get_period_subset(self, period_id):
+        """
+        Get a list of datasets for the given period id
+            :param period_id: 
+        """
+        period_ensemble = GridRegionEnsemble(self.region_id, period_id)
+        for dataset_id in self.dataset_ids:
+            try: 
+                dataset = self._datasets[dataset_id][period_id]
+            except ValueError:
+                continue
+            period_ensemble.add_dataset(dataset)
+        return period_ensemble
+
+    def write_reconciled_netcdf(self, reconciled_grid_dir):
         """
         Create a reconciled netcdf product for each period/region item
         """
-        pass
+        # Loop over all periods (one netcdf for each)
+        for period_id in self.period_ids:
+            # Set the id of the grid ensemble
+            ensemble_id = "l3grid-sit-ensemble-%s-%s" % (self.region_id, period_id)
+            period_ensemble = self.get_period_subset(period_id)
+            ncfile = GridReconciledNetCDF(period_ensemble)
+            ncfile.write(reconciled_grid_dir)
 
     @property
     def dataset_ids(self):
@@ -520,6 +540,54 @@ class GridCollection(ClassTemplate):
                 min_vals.append(np.nanmin(data.thickness))
                 max_vals.append(np.nanmax(data.thickness))
         return np.nanmin(min_vals), np.nanmax(max_vals)
+
+
+
+class GridRegionEnsemble(ClassTemplate):
+    """
+    An ensemble container for a defined region/period (ensemble items: different source datasets)
+    """
+    def __init__(self, region_id, period_id):
+        super(GridRegionEnsemble, self).__init__(self.__class__.__name__)
+        self._region_id = region_id
+        self._period_id = period_id
+        self._datasets = []
+
+    def add_dataset(self, dataset):
+        """
+        Add a dataset to the ensemble with safety checks
+            :param dataset: 
+        """
+        # Sanity checks
+        if dataset.region_id != self.region_id:
+            msg = "region id do not match, skipping ... (ensemble: %s, dataset: %s)"
+            self.log.warning(msg % (self.region_id, dataset.region_id))
+            return 
+        if dataset.period_id != self.period_id:
+            msg = "period id do not match, skipping ... (ensemble: %s, dataset: %s)"
+            self.log.warning(msg % (self.period_id, dataset.period_id))
+            return
+        if dataset.dataset_id in self.dataset_ids:
+            msg = "duplicate dataset (%s), skipping ..."
+            self.log.warning(msg % dataset.dataset_id)
+            return
+        self._datasets.append(dataset)
+
+    @property
+    def datasets(self):
+        return list(self._datasets)
+
+    @property
+    def dataset_ids(self):
+        return sorted([d.dataset_id for d in self.datasets])
+
+    @property
+    def region_id(self):
+        return str(self._region_id)
+
+    @property
+    def period_id(self):
+        return str(self._period_id)
 
 
 class GridDataEnsemble(ClassTemplate):
