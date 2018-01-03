@@ -5,9 +5,6 @@ Created on Fri Sep 08 11:37:27 2017
 @author: Stefan
 """
 
-from pysimre.misc import ClassTemplate, pid2dt
-from pysimre.dataset import OrbitThicknessDataset
-
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -15,6 +12,9 @@ from itertools import product
 
 import numpy as np
 
+from pysimre.misc import ClassTemplate, pid2dt
+from pysimre.dataset import OrbitThicknessDataset
+from pysimre.output import GridReconciledNetCDF
 
 # %% Orbit Collection classes
 
