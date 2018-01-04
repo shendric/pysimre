@@ -51,7 +51,8 @@ class SimreRepository(ClassTemplate):
         (files of type SIMRE_$dataset_id$_$region_id$_$period_id%.nc) """
 
         # Init the collection object
-        grid_collection = GridCollection(region_id)
+        region_label = self.get_region_label(region_id)        
+        grid_collection = GridCollection(region_id, region_label=region_label)
 
         # Loop over all datasets and add a data set for each data period
         for dataset_id in self.dataset_ids:
@@ -60,8 +61,7 @@ class SimreRepository(ClassTemplate):
             # SIMRE grid files
             ctlg = self.dataset_catalogues[dataset_id]
 
-            simre_netcdfs = ctlg.get_simre_grid_netcdfs(region_id=region_id, 
-                                                        period_id=period_id)
+            simre_netcdfs = ctlg.get_simre_grid_netcdfs(region_id=region_id, period_id=period_id)
 
             # Add the region grid
             # (which is aware of dataset_id, region_id & period_id)
@@ -168,6 +168,15 @@ class SimreRepository(ClassTemplate):
         return os.path.join(self.local_calval_path,
                             ctlg[orbit_id].calval_filename)
 
+    def get_region_label(self, region_id):
+        try:
+            region_label = self._region_def[region_id].label
+        except KeyError:
+            msg = "region id (%s) not found in region definition table" % str(region_id)
+            self.log.error(msg)
+            region_label = None
+        return region_label
+
     def _create_repo_catalogue(self):
         """ Scan the local repository for datasets (sat_products),
         ground truth (calval_products) and create a catalogue
@@ -233,8 +242,9 @@ class SimreRepository(ClassTemplate):
         self.log.info("Retrieving grid source data [%s.%s.%s]" % tuple(ids))
 
         # Get the source data on the SIMRE grid
-        source_data_grid = GridSourceData(
-                pyclass, filepath, self._local_path, *ids)
+        region_label = self.get_region_label(region_id)
+        source_data_grid = GridSourceData(pyclass, filepath, self._local_path, *ids,
+                                          region_label=region_label)
 
         # Check for errors while retrieving and gridding data
         if not source_data_grid.error.status:
@@ -313,6 +323,10 @@ class SimreRepository(ClassTemplate):
         for dataset_id in self.dataset_ids:
             period_ids.extend(ctlg[dataset_id].grid_period_ids)
         return sorted(np.unique(period_ids))
+
+    @property
+    def grid_dataset_pool(self):
+        return product(self.grid_dataset_ids, self.grid_region_ids, self.grid_period_ids)
 
     @property
     def ensemble_pool(self):

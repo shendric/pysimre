@@ -444,12 +444,12 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
 # %% Classes for gridded datasets
 
 
-def GridSourceData(class_name, filepath, repo_dir, *ids):
+def GridSourceData(class_name, filepath, repo_dir, *ids, **kwargs):
     """ Getter function for the gridded source data. *ids is the
     array [dataset_id, region_id, period_id] """
 
     try:
-        dataset = globals()[class_name](filepath, repo_dir, *ids)
+        dataset = globals()[class_name](filepath, repo_dir, *ids, **kwargs)
     except KeyError:
         print "Unkown class in pysimre.dataset: %s" % str(class_name)
         sys.exit()
@@ -461,13 +461,14 @@ def GridSourceData(class_name, filepath, repo_dir, *ids):
 class SourceGridBaseClass(ClassTemplate):
 
     def __init__(self, filename, repo_dir, dataset_id, region_id, period_id,
-                 apply_land_mask=True):
+                 apply_land_mask=True, region_label=None):
         super(SourceGridBaseClass, self).__init__(self.__class__.__name__)
 
         # Source metadata
         self.filename = filename
         self.period_id = period_id
         self.region_id = region_id
+        self.region_label = region_label
         self.dataset_id = dataset_id
         self.repo_dir = repo_dir
         self.apply_land_mask = apply_land_mask
@@ -484,7 +485,7 @@ class SourceGridBaseClass(ClassTemplate):
 
     def extract_test_region(self, region_id):
         """ Returns a data object for a given region """
-        region_data = RegionGrid(self.repo_dir, region_id)
+        region_data = RegionGrid(self.repo_dir, region_id, region_label=self.region_label)
         region_data.from_source_grid(self)
         return region_data
 
@@ -627,10 +628,11 @@ class SourceGridBaseClass(ClassTemplate):
 
 class RegionGrid(ClassTemplate):
 
-    def __init__(self, repo_dir, region_id):
+    def __init__(self, repo_dir, region_id, region_label=""):
         super(RegionGrid, self).__init__(self.__class__.__name__)
         self._repo_dir = repo_dir
         self._region_id = region_id
+        self._region_label = region_label
         self._dataset_id = None
         self._period_id = None
 
@@ -706,6 +708,7 @@ class RegionGrid(ClassTemplate):
         rootgrp.setncattr("source", source_filename)
         rootgrp.setncattr("dataset_id", self.dataset_id)
         rootgrp.setncattr("region_id", self.region_id)
+        rootgrp.setncattr("region_label", self.region_label)
         rootgrp.setncattr("period_id", self.period_id)
         rootgrp.setncattr("summary", "TBD")
         rootgrp.setncattr("creator_name", "TBD")
@@ -775,6 +778,10 @@ class RegionGrid(ClassTemplate):
         return str(self._region_id)
 
     @property
+    def region_label(self):
+        return str(self._region_label)
+
+    @property
     def dataset_id(self):
         return str(self._dataset_id)
 
@@ -802,8 +809,8 @@ class AWIGridThickness(SourceGridBaseClass):
         720, 720,
         [-9000000., -9000000., 9000000., 9000000.])
 
-    def __init__(self, *args):
-        super(AWIGridThickness, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(AWIGridThickness, self).__init__(*args, **kwargs)
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
         self.apply_target_grid_masks()
@@ -815,8 +822,8 @@ class AWIGridThickness(SourceGridBaseClass):
 
 class CCICDRGridThickness(SourceGridBaseClass):
 
-    def __init__(self, *args):
-        super(CCICDRGridThickness, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(CCICDRGridThickness, self).__init__(*args, **kwargs)
         self.read_nc()
         self.apply_target_grid_masks()
 
@@ -837,8 +844,8 @@ class CS2SMOSGridThickness(SourceGridBaseClass):
         720, 720,
         [-9000000., -9000000., 9000000., 9000000.])
 
-    def __init__(self, *args):
-        super(CS2SMOSGridThickness, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(CS2SMOSGridThickness, self).__init__(*args, **kwargs)
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
         self.apply_target_grid_masks()
@@ -868,8 +875,8 @@ class LEGOSGridThickness(SourceGridBaseClass):
         722, 722,
         [-4512500., -4512500., 4512500., 4512500.])
 
-    def __init__(self, *args):
-        super(LEGOSGridThickness, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(LEGOSGridThickness, self).__init__(*args, **kwargs)
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
         self.apply_target_grid_masks()
@@ -890,8 +897,8 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
         304, 448,
         [-3800000.0, -5350000.0, 3800000.0, 5850000.0])
 
-    def __init__(self, *args):
-        super(NasaGSFCGridThickness, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(NasaGSFCGridThickness, self).__init__(*args, **kwargs)
         self.read_nc()
         self.resample_sourcegrid_to_targetgrid()
         self.thickness = np.flipud(self.thickness)
@@ -907,8 +914,8 @@ class NasaGSFCGridThickness(SourceGridBaseClass):
 
 class NasaJPLGridThickness(SourceGridBaseClass):
 
-    def __init__(self, *args):
-        super(NasaJPLGridThickness, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(NasaJPLGridThickness, self).__init__(*args, **kwargs)
         self.read_ascii()
         if not self.error.status:
             self.resample_sourcepoints_to_targetgrid()
@@ -938,8 +945,8 @@ class NasaJPLGridThickness(SourceGridBaseClass):
 
 class UCLGridThickness(SourceGridBaseClass):
 
-    def __init__(self, *args):
-        super(UCLGridThickness, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(UCLGridThickness, self).__init__(*args, **kwargs)
         self.read_ascii()
         if not self.error.status:
             self.grid_sourcepoints_to_targetgrid()

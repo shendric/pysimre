@@ -428,9 +428,10 @@ class OrbitEnsembleItem(ClassTemplate):
 
 class GridCollection(ClassTemplate):
 
-    def __init__(self, region_id):
+    def __init__(self, region_id, region_label=None):
         super(GridCollection, self).__init__(self)
         self._region_id = region_id
+        self._region_label = region_label
         self._datasets = {}
 
     def add_dataset(self, dataset):
@@ -485,7 +486,8 @@ class GridCollection(ClassTemplate):
         Get a list of datasets for the given period id
             :param period_id: 
         """
-        period_ensemble = GridRegionEnsemble(self.region_id, period_id)
+        period_ensemble = GridRegionEnsemble(self.region_id, period_id, 
+                                             region_label=self.region_label)
         for dataset_id in self.dataset_ids:
             try: 
                 dataset = self._datasets[dataset_id][period_id]
@@ -523,6 +525,10 @@ class GridCollection(ClassTemplate):
         return str(self._region_id)
 
     @property
+    def region_label(self):
+        return str(self._region_label)
+
+    @property
     def n_datasets(self):
         return len(self._datasets.keys())
 
@@ -547,9 +553,10 @@ class GridRegionEnsemble(ClassTemplate):
     """
     An ensemble container for a defined region/period (ensemble items: different source datasets)
     """
-    def __init__(self, region_id, period_id):
+    def __init__(self, region_id, period_id, region_label=None):
         super(GridRegionEnsemble, self).__init__(self.__class__.__name__)
         self._region_id = region_id
+        self._region_label = region_label
         self._period_id = period_id
         self._datasets = []
 
@@ -572,6 +579,8 @@ class GridRegionEnsemble(ClassTemplate):
             self.log.warning(msg % dataset.dataset_id)
             return
         self._datasets.append(dataset)
+        if self.region_label is None:
+            self._region_label = dataset.region_label
 
     @property
     def datasets(self):
@@ -585,6 +594,10 @@ class GridRegionEnsemble(ClassTemplate):
     def region_id(self):
         return str(self._region_id)
 
+    @property
+    def region_label(self):
+        return str(self._region_label)
+        
     @property
     def period_id(self):
         return str(self._period_id)
