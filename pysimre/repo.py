@@ -66,7 +66,7 @@ class SimreRepository(ClassTemplate):
             # Add the region grid
             # (which is aware of dataset_id, region_id & period_id)
             for simre_netcdf in simre_netcdfs:
-                region_grid = RegionGrid(self._local_path, region_id)
+                region_grid = RegionGrid(self._local_path, region_id, region_label=region_label)
                 region_grid.from_netcdf(simre_netcdf)
                 grid_collection.add_dataset(region_grid)
 
