@@ -31,11 +31,12 @@ class GridReconciledNetCDF(ClassTemplate):
         try:
             self.populate_global_attributes()
             self.populate_variables()
-        except:
-            error = sys.exc_info()[0]
-            self.log.error("Unkown error: %s" % str(error))
+        except SystemExit:
+            sys.exit("Forced Exit (raise SystemExit or sys.exit() evoked)")
+        except Exception as err:
+            self.log.error("Unkown error: %s" % str(err))
         finally:
-            # Close the file
+            # Always close the file
             self.rootgrp.close()
 
         ''' # Get metadata
@@ -52,20 +53,7 @@ class GridReconciledNetCDF(ClassTemplate):
         # Open the file
         rootgrp = Dataset(self.output_filepath, "w")
 
-        # Write Global Attributes
-        rootgrp.setncattr("title", "Regional Data for Sea Ice Mass " +
-                          "Reconciliation Exercise (SIMRE)")
-        rootgrp.setncattr("project", "Arctic+ Theme 2: Sea Ice Mass")
-        rootgrp.setncattr("source", source_filename)
-        rootgrp.setncattr("dataset_id", self.dataset_id)
-        rootgrp.setncattr("region_id", self.region_id)
-        rootgrp.setncattr("period_id", self.period_id)
-        rootgrp.setncattr("summary", "TBD")
-        rootgrp.setncattr("creator_name", "TBD")
-        rootgrp.setncattr("creator_url", "TBD")
-        rootgrp.setncattr("creator_email", "TBD")
-        rootgrp.setncattr("contributor_name", "TBD")
-        rootgrp.setncattr("contributor_role", "TBD")
+
 
         # Write dimensions
         dims = dimdict.keys()
@@ -206,9 +194,9 @@ class GridReconciledNetCDF(ClassTemplate):
 
     @property
     def output_filepath(self):
-        filename = "simre-l3-sit-reconciled-%s-%s.nc" % (self.enslb.region_id, self.enslb.period_id)
+        filename = "simre-l3-sit-reconciled-%s-%s.nc" % (self.ensbl.region_id, self.ensbl.period_id)
         return os.path.join(self.output_folder, filename)
 
     @property
-    def enslb(self):
+    def ensbl(self):
         return self._ensbl
