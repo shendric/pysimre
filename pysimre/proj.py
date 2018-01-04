@@ -16,16 +16,9 @@ from pyproj import Proj
 import numpy as np
 import os
 
-DEFAULT_GRID_DEFINITION = "nh25kmEASE2.yaml"
-
-# for pyresample
-TARGET_AREA_DEF = geometry.AreaDefinition(
-    'nh25kmease2', 'EASE2 North (25km)', 'nh25kmease2',
-    {'lat_0': '90.00', 'lat_ts': '70.00',
-     'lon_0': '0.00', 'proj': 'laea',
-     'ellps': 'WGS84', 'datum': 'WGS84'},
-    432, 432,
-    [-5400000.0, -5400000.0, 5400000.0, 5400000.0])
+from pysimre import (LOCAL_PATH_RESOURCES, REGION_DEF_FILENAME,
+                     DEFAULT_GRID_DEFINITION, TARGET_AREA_DEF)
+from pysimre.misc import ClassTemplate, parse_config_file
 
 
 def get_target_grid():
