@@ -8,6 +8,8 @@ Created on Fri Sep 08 11:37:27 2017
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
+from scipy import stats as scistats
+
 from itertools import product
 
 import numpy as np
@@ -548,7 +550,6 @@ class GridCollection(ClassTemplate):
         return np.nanmin(min_vals), np.nanmax(max_vals)
 
 
-
 class GridRegionEnsemble(ClassTemplate):
     """
     An ensemble container for a defined region/period (ensemble items: different source datasets)
@@ -601,6 +602,60 @@ class GridRegionEnsemble(ClassTemplate):
     @property
     def period_id(self):
         return str(self._period_id)
+
+    @property
+    def sit_stack(self):
+        return np.array([dst.thickness for dst in self.datasets])
+
+    @property
+    def n_datasets(self):
+        return len(self.datasets)
+
+    @property
+    def longitude(self):
+        return self.datasets[0].longitude
+
+    @property
+    def latitude(self):
+        return self.datasets[0].latitude
+
+    @property
+    def mean_thickness(self):
+        return np.nanmean(self.sit_stack, axis=0)
+
+    @property
+    def gmean_thickness(self):
+        """ Computes the geometric mean """   
+        sit_stack = self.sit_stack
+        # scipy geometric mean requires masked arrays (it cannot handle NaN's)
+        sit_stack = np.ma.array(sit_stack, mask=np.isnan(sit_stack))
+        gmean = scistats.gmean(sit_stack, axis=0) 
+        # convert back to norman array with NaN's
+        gmean[gmean.mask] = np.nan
+        return gmean
+
+    @property
+    def median_thickness(self):
+        return np.nanmedian(self.sit_stack, axis=0)
+
+    @property
+    def min_thickness(self):
+        return np.nanmin(self.sit_stack, axis=0)
+
+    @property
+    def max_thickness(self):
+        return np.nanmax(self.sit_stack, axis=0)
+
+    @property
+    def thickness_stdev(self):
+        return np.nanstd(self.sit_stack, axis=0)
+
+    @property
+    def n_points(self):
+        sit_stack = self.sit_stack
+        for i in np.arange(self.n_datasets):
+            sit_stack[i, :, :] = np.isfinite(sit_stack[i, :, :]).astype(int)
+        return np.sum(sit_stack, axis=0)
 
 
 class GridDataEnsemble(ClassTemplate):
