@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
-import glob
 import os
 import re
+import sys
+import glob
 
 import numpy as np
 from itertools import product

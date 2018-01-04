@@ -5,11 +5,6 @@ Created on Mon Sep 11 09:33:24 2017
 @author: Stefan
 """
 
-from pysimre import LOCAL_PATH_RESOURCES
-from pysimre.misc import ClassTemplate, parse_config_file
-
-from pyresample import image, geometry
-
 from treedict import TreeDict
 from pyproj import Proj
 
