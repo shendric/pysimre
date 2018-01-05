@@ -105,8 +105,7 @@ class GridReconciledNetCDF(ClassTemplate):
             'period: `%s`')
         summary = summary % (self.ensbl.region_id, self.ensbl.period_id)
         summary = textwrap.dedent(summary).strip()
-        print summary
-
+        
         self.rootgrp.setncattr("summary", summary)
         self.rootgrp.setncattr("region_id", self.ensbl.region_id)
         self.rootgrp.setncattr("region_label", self.ensbl.region_label)
@@ -116,8 +115,14 @@ class GridReconciledNetCDF(ClassTemplate):
         self.rootgrp.setncattr("geospatial_bounds_crs", "EPSG:6931")
         self.rootgrp.setncattr("creator_name", "Stefan Hendricks")
         self.rootgrp.setncattr("creator_email", "stefan.hendricks@awi.de")
-        self.rootgrp.setncattr("contributor_name", "TBD")
-        self.rootgrp.setncattr("contributor_role", "TBD")
+
+        dataset_ids = self.ensbl.dataset_ids
+        self.rootgrp.setncattr("datasets", ",".join(dataset_ids))
+        for dataset_id in dataset_ids:
+            dataset_metadata = self.ensbl.get_dataset_metadata(dataset_id)
+            for key in ["summary", "reference", "contributor", "institution", "version"]:
+                attr_name = key+"_"+dataset_id
+                self.rootgrp.setncattr(attr_name, getattr(dataset_metadata, key))
     
     def populate_variables(self):
         """ Write variables with metadata """

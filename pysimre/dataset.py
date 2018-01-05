@@ -5,6 +5,7 @@ Created on Wed May 10 11:46:20 2017
 @author: shendric
 """
 
+
 from pysimre.clocks import UTCTAIConverter, daycnv
 from pysimre.misc import ClassTemplate, file_basename
 from pysimre.proj import SIMREGridDefinition, get_region_def, TARGET_AREA_DEF
@@ -461,7 +462,7 @@ def GridSourceData(class_name, filepath, repo_dir, *ids, **kwargs):
 class SourceGridBaseClass(ClassTemplate):
 
     def __init__(self, filename, repo_dir, dataset_id, region_id, period_id,
-                 apply_land_mask=True, region_label=None):
+                 apply_land_mask=True, region_label=None, metadata=None):
         super(SourceGridBaseClass, self).__init__(self.__class__.__name__)
 
         # Source metadata
@@ -472,6 +473,7 @@ class SourceGridBaseClass(ClassTemplate):
         self.dataset_id = dataset_id
         self.repo_dir = repo_dir
         self.apply_land_mask = apply_land_mask
+        self.metadata = metadata
         self.source_longitude = None
         self.source_latitude = None
         self.source_thickness = None
@@ -485,7 +487,8 @@ class SourceGridBaseClass(ClassTemplate):
 
     def extract_test_region(self, region_id):
         """ Returns a data object for a given region """
-        region_data = RegionGrid(self.repo_dir, region_id, region_label=self.region_label)
+        region_data = RegionGrid(self.repo_dir, region_id, region_label=self.region_label,
+                                 metadata=self.metadata)
         region_data.from_source_grid(self)
         return region_data
 
@@ -628,13 +631,14 @@ class SourceGridBaseClass(ClassTemplate):
 
 class RegionGrid(ClassTemplate):
 
-    def __init__(self, repo_dir, region_id, region_label=""):
+    def __init__(self, repo_dir, region_id, region_label="", metadata=None):
         super(RegionGrid, self).__init__(self.__class__.__name__)
         self._repo_dir = repo_dir
         self._region_id = region_id
         self._region_label = region_label
         self._dataset_id = None
         self._period_id = None
+        self.metadata = metadata
 
     def from_source_grid(self, source_grid):
         """ Extract region data from source grid
@@ -705,17 +709,17 @@ class RegionGrid(ClassTemplate):
         rootgrp.setncattr("title", "Regional Data for Sea Ice Mass " +
                           "Reconciliation Exercise (SIMRE)")
         rootgrp.setncattr("project", "Arctic+ Theme 2: Sea Ice Mass")
+        rootgrp.setncattr("summary", str(self.metadata.summary))
+        rootgrp.setncattr("reference", str(self.metadata.reference))
+        rootgrp.setncattr("contributor", str(self.metadata.contributor))
+        rootgrp.setncattr("institution", str(self.metadata.institution))
+        rootgrp.setncattr("version", str(self.metadata.version))
         rootgrp.setncattr("source", source_filename)
         rootgrp.setncattr("dataset_id", self.dataset_id)
         rootgrp.setncattr("region_id", self.region_id)
         rootgrp.setncattr("region_label", self.region_label)
         rootgrp.setncattr("period_id", self.period_id)
-        rootgrp.setncattr("summary", "TBD")
-        rootgrp.setncattr("creator_name", "TBD")
-        rootgrp.setncattr("creator_url", "TBD")
-        rootgrp.setncattr("creator_email", "TBD")
-        rootgrp.setncattr("contributor_name", "TBD")
-        rootgrp.setncattr("contributor_role", "TBD")
+
 
         # Write dimensions
         dims = dimdict.keys()
@@ -766,8 +770,24 @@ class RegionGrid(ClassTemplate):
             msg = msg % (region_id, self.region_id)
             self.error("region_id-mismatch", msg)
             self.error.raise_on_error()
+
+        # Set Metadata 
+
+        metadata_dict = {}
+        for key in ["summary", "reference", "contributor", "institution", "version"]:
+            try: 
+                metadata_dict[key] = getattr(data, key)
+            except AttributeError:
+                metadata_dict[key] = "None"
+                print key, " missing in ", netcdf_filename
+                print data.attributes
+                sys.exit("debug")
+        self.metadata = DatasetMetadata()
+        self.metadata.set_dict(**metadata_dict)
+
         self._dataset_id = data.dataset_id
         self._period_id = data.period_id
+
 
         self.longitude = data.longitude
         self.latitude = data.latitude
@@ -1115,3 +1135,47 @@ def configuration_file_ordereddict(filename):
     with open(filename, 'r') as filehandle:
         data = simplejson.load(filehandle, object_pairs_hook=OrderedDict)
     return data
+
+class DatasetMetadata(ClassTemplate):
+
+    def __init__(self):
+        super(DatasetMetadata, self).__init__(self.__class__.__name__)
+        self._id = None
+        self._summary = None
+        self._reference = None
+        self._contributor = None
+        self._institution = None
+        self._version = None
+
+    def set_dict(self, **dict):
+        for key in dict.keys():
+            attr_name = "_"+key
+            if not hasattr(self, attr_name):
+                msg = "Invalid metadata tag (%s), ignoring ...." % key
+                self.log.warning(msg)
+                continue
+            setattr(self, attr_name, dict[key].encode('ascii', 'replace'))
+
+    @property
+    def id(self):
+        return str(self._id)
+                
+    @property
+    def summary(self):
+        return str(self._summary)
+                
+    @property
+    def reference(self):
+        return str(self._reference)
+                
+    @property
+    def contributor(self):
+        return str(self._contributor)
+                
+    @property
+    def institution(self):
+        return str(self._institution)
+                
+    @property
+    def version(self):
+        return str(self._version)

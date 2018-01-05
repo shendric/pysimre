@@ -9,7 +9,7 @@ from itertools import product
 from pysimre import REGION_DEF_FILENAME, RECONCILED_GRID_SUB_FOLDERS
 
 from pysimre.collection import OrbitCollection, GridCollection
-from pysimre.dataset import CalValDataset, GridSourceData, RegionGrid
+from pysimre.dataset import CalValDataset, GridSourceData, RegionGrid, DatasetMetadata
 from pysimre.misc import ClassTemplate, parse_config_file
 
 
@@ -36,6 +36,12 @@ class SimreRepository(ClassTemplate):
 
     def get_dataset_catalogue(self, dataset_id):
         return self.dataset_catalogues.get(dataset_id, None)
+
+    def get_dataset_metadata(self, dataset_id):
+        ctlg = self.get_dataset_catalogue(dataset_id)
+        metadata = DatasetMetadata()
+        metadata.set_dict(**ctlg.metadata_dict)
+        return metadata
 
     def get_orbit_collection(self, orbit_id):
         collection = OrbitCollection(orbit_id)
@@ -214,6 +220,7 @@ class SimreRepository(ClassTemplate):
         filepath = ctlg.get_sourcegrid_filepath(region_id, period_id)
         pyclass = ctlg.sourcegrid_pyclass
         ids = [dataset_id, region_id, period_id]
+        metadata = self.get_dataset_metadata(dataset_id)
 
         # Check if file has been found
         if filepath is None:
@@ -244,7 +251,7 @@ class SimreRepository(ClassTemplate):
         # Get the source data on the SIMRE grid
         region_label = self.get_region_label(region_id)
         source_data_grid = GridSourceData(pyclass, filepath, self._local_path, *ids,
-                                          region_label=region_label)
+                                          region_label=region_label, metadata=metadata)
 
         # Check for errors while retrieving and gridding data
         if not source_data_grid.error.status:
@@ -453,6 +460,13 @@ class SimreDatasetCatalogue(ClassTemplate):
     @property
     def dataset_id(self):
         return str(self._dataset_id)
+
+    @property
+    def metadata_dict(self):
+        metadata = dict(self.repo_config.metadata)
+        metadata.pop("has_orbit_data")
+        metadata.pop("has_region_data")
+        return metadata
 
     @property
     def path(self):

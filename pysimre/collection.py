@@ -583,6 +583,13 @@ class GridRegionEnsemble(ClassTemplate):
         if self.region_label is None:
             self._region_label = dataset.region_label
 
+    def get_dataset_metadata(self, dataset_id):
+        metadata = [d.metadata for d in self.datasets if d.dataset_id == dataset_id]
+        try: 
+            return metadata[0]
+        except IndexError:
+            return None
+
     @property
     def datasets(self):
         return list(self._datasets)
