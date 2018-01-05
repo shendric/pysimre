@@ -356,7 +356,7 @@ class SimreDatasetCatalogue(ClassTemplate):
         self.repo_config = parse_config_file(self.repo_config_file)
         self.repo_config.freeze()
         # List all orbit files
-        self.query_orbit_files()
+        # self.query_orbit_files()
         self.query_orbit_filemap()
 
     def query_orbit_files(self):
