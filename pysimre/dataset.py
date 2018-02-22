@@ -1077,7 +1077,11 @@ class ReadNC(object):
 
     def read_content(self):
         self.keys = []
-        f = Dataset(self.filename)
+        try: 
+            f = Dataset(self.filename)
+        except RuntimeError:
+            msg = "ReadNC: Invalid filename: %s" % str(self.filename)
+            sys.exit(msg)
         f.set_auto_scale(self.autoscale)
 
         # Get the global attributes
