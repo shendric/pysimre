@@ -41,7 +41,7 @@ class OrbitCollection(ClassTemplate):
         """ Add an orbit thickness dataset to the collection """
         if type(filepaths) is list:
             multifile_dataset = OrbitThicknessDataset(dataset_id, filepaths[0], orbit=self.orbit_id)
-            for i in np.range(1:len(filepaths)):
+            for i in np.arange(1, len(filepaths)):
                 dataset = OrbitThicknessDataset(dataset_id, filepaths[i], orbit=self.orbit_id)
                 multifile_dataset.append(dataset)
             self._datasets[dataset_id] = multifile_dataset

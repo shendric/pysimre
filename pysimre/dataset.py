@@ -86,7 +86,7 @@ class OrbitThicknessBaseClass(object):
             raise ValueError(msg)
 
         # Append all parameters (with additional None check)
-        for parameter_name in parameter_name in self.parameter_list:
+        for parameter_name in self.parameter_list:
             parameter_to_append = getattr(dataset_to_append, parameter_name)
             parameter = getattr(self, parameter_name)
             if parameter is None:
