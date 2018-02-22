@@ -37,10 +37,16 @@ class OrbitCollection(ClassTemplate):
         self._calval_ensemble = None
         self._ensemble_item_size_seconds = None
 
-    def add_dataset(self, dataset_id, filepath):
+    def add_dataset(self, dataset_id, filepaths):
         """ Add an orbit thickness dataset to the collection """
-        self._datasets[dataset_id] = OrbitThicknessDataset(
-                dataset_id, filepath, orbit=self.orbit_id)
+        if type(filepaths) is list:
+            multifile_dataset = OrbitThicknessDataset(dataset_id, filepaths[0], orbit=self.orbit_id)
+            for i in np.range(1:len(filepaths)):
+                dataset = OrbitThicknessDataset(dataset_id, filepaths[i], orbit=self.orbit_id)
+                multifile_dataset.append(dataset)
+            self._datasets[dataset_id] = multifile_dataset
+        else:
+            self._datasets[dataset_id] = OrbitThicknessDataset(dataset_id, filepaths, orbit=self.orbit_id)
 
     def get_dataset(self, dataset_id):
         """ Returns a OrbitThicknessDataset object for the given dataset_id.

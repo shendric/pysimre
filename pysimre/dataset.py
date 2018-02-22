@@ -73,6 +73,26 @@ class OrbitThicknessBaseClass(object):
             array = np.ndarray(shape=n_records, dtype=self.dtype[name])
             setattr(self, name, array)
 
+    def append(self, dataset_to_append):
+        """ Merge the current dataset with another dataset """
+
+        # First: Sanity check
+        incorrect_dataset_id = self.dataset_id != dataset_to_append.dataset_id
+        incorrect_track_id = self.track_id != dataset_to_append.track_id
+        if incorrect_dataset_id or incorrect_track_id:
+            msg = "dataset_id or track_id mismatch [%s, %s] [%s %s]" % (
+                self.dataset_id, dataset_to_append.dataset_id,
+                self.track_id,dataset_to_append.track_id)
+            raise ValueError(msg)
+
+        # Append all parameters (with additional None check)
+        for parameter_name in parameter_name in self.parameter_list:
+            parameter_to_append = getattr(dataset_to_append, parameter_name)
+            parameter = getattr(self, parameter_name)
+            if parameter is None:
+                continue
+            setattr(self, parameter_name, np.append(parameter, parameter_to_append))
+
     def clip_to_latbox(self, lat_limits, direction):
         """ Computes the overlap of data points for a given latitude box
         [lat_min, lat_max] in either the 'ascending' or 'descending'
