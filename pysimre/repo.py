@@ -389,9 +389,16 @@ class SimreDatasetCatalogue(ClassTemplate):
         return orbit_id in self.orbit_filemap_list
 
     def filepath_info(self, orbit_id):
-        return (self.dataset_id,
-                os.path.join(self.orbit_data_path,
-                             self.orbit_filemap.get(orbit_id, None)))
+        orbit_files = self.orbit_filemap.get(orbit_id, None)
+        if type(orbit_files) is list:
+            return_val = (
+                self.dataset_id,
+                [os.path.join(self.orbit_data_path, file) for file in orbit_files])
+        else: 
+            return_val = (
+                self.dataset_id,
+                os.path.join(self.orbit_data_path, orbit_files))
+        return return_val
 
     def get_sourcegrid_filepath(self, region_id, period_id):
         """ Return the path to local source grid files """
