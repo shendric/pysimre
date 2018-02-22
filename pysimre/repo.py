@@ -306,6 +306,12 @@ class SimreRepository(ClassTemplate):
         return [self.dataset_catalogues[dsi] for dsi in self.dataset_ids]
 
     @property
+    def calval_orbit_ids(self):
+        """ Returns a list of all orbit id's """
+        ctlg = self._calval_catalogue
+        return self.branches(ctlg.orbit_id_map)
+
+    @property
     def grid_dataset_ids(self):
 
         ctlg = self.dataset_catalogues
