@@ -14,7 +14,7 @@ from pyresample import image, geometry
 
 import warnings
 from collections import defaultdict, OrderedDict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from scipy.interpolate import griddata
 
@@ -296,13 +296,18 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
     def construct_data_groups(self):
         datenum = self.get_datagroup("time")
         timestamp = [self._get_datetime(time) for time in datenum]
-        self.time = np.array(timestamp)
-        self.longitude = self.get_datagroup("lon")
-        self.latitude = self.get_datagroup("lat")
-        self.ice_density = self.get_datagroup("rho_i")
-        self.snow_density = self.get_datagroup("rho_s")
-        self.snow_depth = self.get_datagroup("sd")
-        self.sea_ice_thickness = self.get_datagroup("sit")
+        valid_flag = [isinstance(t, date) for t in timestamp]
+        n_invalid = len(np.where(np.logical_not(valid_flag))[0])
+        print "%s: %g invalid timestamps in %s" % (self.__class__.__name__, n_invalid, self.filename)
+        valid = np.where(valid_flag)[0]
+
+        self.time = np.array(timestamp)[valid]
+        self.longitude = self.get_datagroup("lon")[valid]
+        self.latitude = self.get_datagroup("lat")[valid]
+        self.ice_density = self.get_datagroup("rho_i")[valid]
+        self.snow_density = self.get_datagroup("rho_s")[valid]
+        self.snow_depth = self.get_datagroup("sd")[valid]
+        self.sea_ice_thickness = self.get_datagroup("sit")[valid]
 
     def get_datagroup(self, tag):
         index = self.registered_datagroups[tag]
@@ -355,7 +360,10 @@ class AWIOrbitThickness(OrbitThicknessBaseClass):
 
     def _get_datetime(self, xjd):
         year, month, day, hours = daycnv(xjd)
-        timestamp = datetime(year, month, day) + relativedelta(hours=hours)
+        try: 
+            timestamp = datetime(year, month, day) + relativedelta(hours=hours)
+        except:
+            return np.nan
         return timestamp
 
     def _get_datetime_str(self, datetime):
@@ -436,7 +444,7 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
                       "ice_density"]
 
     parameter_map = {
-            "time": "timestamp",
+            "time": "time",
             "longitude": "longitude",
             "latitude": "latitude",
             "sea_ice_thickness": "sea_ice_thickness",
@@ -455,7 +463,7 @@ class CCICDROrbitThickness(OrbitThicknessBaseClass):
 
     def parse(self):
         data = ReadNC(self.filename,
-                      convert2datetime=["timestamp"],
+                      convert2datetime=["time"],
                       time_units=self.time_units,
                       time_calendar=self.time_calendar)
         for parameter_name in self.parameter_list:
