@@ -309,7 +309,7 @@ class SimreRepository(ClassTemplate):
     def calval_orbit_ids(self):
         """ Returns a list of all orbit id's """
         ctlg = self._calval_catalogue
-        return self.branches(ctlg.orbit_id_map)
+        return sorted(self.branches(ctlg.orbit_id_map))
 
     @property
     def grid_dataset_ids(self):
