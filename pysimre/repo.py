@@ -149,12 +149,8 @@ class SimreRepository(ClassTemplate):
         """ Tests if calval data for orbit id is known in the catalogue
         and target file exists """
 
-        # Check for entry in calval config file
-        def branches(t): return list(t.iterkeys(recursive=False,
-                                     branch_mode='only'))
-
         ctlg = self._calval_catalogue
-        has_orbit_entry = orbit_id in branches(ctlg.orbit_id_map)
+        has_orbit_entry = orbit_id in self.branches(ctlg.orbit_id_map)
         if not has_orbit_entry:
             return False
 
@@ -342,6 +338,11 @@ class SimreRepository(ClassTemplate):
     @property
     def reconciled_grid_dir(self):
         return os.path.join(self.local_path, *RECONCILED_GRID_SUB_FOLDERS)
+
+    @staticmethod
+    def branches(t): 
+        return list(t.iterkeys(recursive=False, branch_mode='only'))
+
 
 class SimreDatasetCatalogue(ClassTemplate):
     """ A catalogue of all files in the SIMRE repository for a given
