@@ -49,7 +49,8 @@ class SimreRepository(ClassTemplate):
             ctlg.filepath_info(orbit_id) for ctlg in self.catalogue_list
                 if ctlg.has_orbit(orbit_id)]
         for dataset_id, filepath in orbit_dataset_list:
-            collection.add_dataset(dataset_id, filepath)
+            metadata = self.get_dataset_metadata(dataset_id)
+            collection.add_dataset(dataset_id, filepath, metadata)
         return collection
 
     def get_grid_collection(self, region_id, period_id=None):

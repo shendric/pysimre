@@ -55,10 +55,11 @@ class OrbitThicknessBaseClass(object):
     # define data types of parameters (default: single precision float)
     dtype = defaultdict(lambda: "f4", time=object)
 
-    def __init__(self, track_id="n/a", orbit="n/a"):
+    def __init__(self, track_id="n/a", orbit="n/a", metadata="None"):
         self.filename = None
         self.track_id = track_id
         self.orbit = orbit
+        self.metadata = metadata
         self.time = None
         self.longitude = None
         self.latitude = None
@@ -66,6 +67,7 @@ class OrbitThicknessBaseClass(object):
         self.ice_density = None
         self.snow_depth = None
         self.snow_density = None
+        
 
     def init_parameter_groups(self, n_records, parameter_list):
         """ Create arrays for given parameters """

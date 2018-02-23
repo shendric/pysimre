@@ -37,16 +37,19 @@ class OrbitCollection(ClassTemplate):
         self._calval_ensemble = None
         self._ensemble_item_size_seconds = None
 
-    def add_dataset(self, dataset_id, filepaths):
+    def add_dataset(self, dataset_id, filepaths, metadata):
         """ Add an orbit thickness dataset to the collection """
         if type(filepaths) is list:
-            multifile_dataset = OrbitThicknessDataset(dataset_id, filepaths[0], orbit=self.orbit_id)
+            multifile_dataset = OrbitThicknessDataset(dataset_id, filepaths[0], orbit=self.orbit_id,
+                                                      metadata=metadata)
             for i in np.arange(1, len(filepaths)):
-                dataset = OrbitThicknessDataset(dataset_id, filepaths[i], orbit=self.orbit_id)
+                dataset = OrbitThicknessDataset(dataset_id, filepaths[i], orbit=self.orbit_id,
+                                                metadata=metadata)
                 multifile_dataset.append(dataset)
             self._datasets[dataset_id] = multifile_dataset
         else:
-            self._datasets[dataset_id] = OrbitThicknessDataset(dataset_id, filepaths, orbit=self.orbit_id)
+            self._datasets[dataset_id] = OrbitThicknessDataset(dataset_id, filepaths, orbit=self.orbit_id, 
+                                                               metadata=metadata)
 
     def get_dataset(self, dataset_id):
         """ Returns a OrbitThicknessDataset object for the given dataset_id.
@@ -196,8 +199,16 @@ class OrbitDataEnsemble(ClassTemplate):
         time_ranges = self.reftime_bounds
         for i, time_range in enumerate(time_ranges):
             parameters = dataset.get_ensemble_items(time_range)
-            ensemble_items[i] = OrbitEnsembleItem(time_range, *parameters)
+            ensemble_items[i] = OrbitEnsembleItem(time_range, *parameters, metadata=dataset.metadata)
         self._members[dataset.dataset_id] = ensemble_items
+
+    def get_dataset_metadata(self, dataset_id):
+        metadata = [d[0].metadata for d in self.datasets if d[0].dataset_id == dataset_id]
+        try: 
+            return metadata[0]
+        except IndexError:
+            print metadata, dataset_id
+            return None
 
     def get_member_mean(self, dataset_id):
         return np.array([m.mean for m in self._members[dataset_id]])
@@ -304,6 +315,10 @@ class OrbitDataEnsemble(ClassTemplate):
         return sorted(self._members.keys())
 
     @property
+    def datasets(self): 
+        return [self._members[did] for did in self.dataset_ids]
+
+    @property
     def dataset_labels(self):
         return [id.replace("_", " ") for id in self.dataset_ids]
 
@@ -358,7 +373,8 @@ class OrbitDataEnsemble(ClassTemplate):
 class OrbitEnsembleItem(ClassTemplate):
     """ Container for data statistics of a single orbit ensemble item """
 
-    def __init__(self, time_range, lons, lats, points):
+    def __init__(self, time_range, lons, lats, points, metadata=None):
+        self.metadata = metadata
         self._time_range = time_range
         self._lons = lons
         self._lats = lats
@@ -435,6 +451,10 @@ class OrbitEnsembleItem(ClassTemplate):
             return np.nanmax(self._lons)
         except ValueError:
             return np.nan
+
+    @property
+    def dataset_id(self):
+        return self.metadata.id
 
 # %% Grid Collection Classes
 
