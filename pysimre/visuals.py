@@ -383,12 +383,16 @@ class OrbitEnsembleGraph(object):
 
         # Plot the calval ensembles
         if calval:
+            calval_props = dict(aem=self.calval_props_aem,
+                                oib=self.calval_props_oib)
             shadow = [path_effects.SimpleLineShadow(offset=(1, -1)),
                       path_effects.Normal()]
             for calval_id in calval_ensemble.dataset_ids:
                 dataset_mean = calval_ensemble.get_member_mean(calval_id)
+                source_id = calval_id[-3:]
                 ax.scatter(calval_ensemble.time, dataset_mean,
-                           path_effects=shadow, **self.calval_props)
+                           path_effects=shadow, label=source_id.upper(),
+                           **calval_props[source_id])
 
         ax.set_xlim(orbit_collection.time_range)
         leg = ax.legend(**self.legend_props)
@@ -411,7 +415,11 @@ class OrbitEnsembleGraph(object):
         return dict(color="black", lw=2, alpha=0.5, zorder=220)
 
     @property
-    def calval_props(self):
+    def calval_props_oib(self):
+        return dict(lw=2, facecolors="none", marker="s", edgecolors="#7F00FF", zorder=230)
+
+    @property
+    def calval_props_aem(self):
         return dict(lw=2, facecolors="none", edgecolors="#EE00EE", zorder=230)
 
     @property
@@ -442,13 +450,16 @@ class OrbitEnsembleResidualGraph(object):
 
         # Plot the calval ensembles
         if calval:
+            calval_props = dict(aem=self.calval_props_aem,
+                                oib=self.calval_props_oib)
             shadow = [path_effects.SimpleLineShadow(offset=(1, -1)),
                       path_effects.Normal()]
             for calval_id in calval_ensemble.dataset_ids:
+                source_id = calval_id[-3:]
                 dataset_mean = calval_ensemble.get_member_mean(calval_id)
                 ax.scatter(calval_ensemble.time,
                            dataset_mean-orbit_ensemble_mean,
-                           path_effects=shadow, **self.calval_props)
+                           path_effects=shadow, **calval_props[source_id])
 
         ax.axhline(0, **self.zero_line_props)
         ax.set_ylim(-2, 2)
@@ -475,7 +486,11 @@ class OrbitEnsembleResidualGraph(object):
         return dict(color="0.1", lw=1, alpha=0.75, zorder=100)
 
     @property
-    def calval_props(self):
+    def calval_props_oib(self):
+        return dict(lw=2, facecolors="none", marker="s", edgecolors="#7F00FF", zorder=230)
+
+    @property
+    def calval_props_aem(self):
         return dict(lw=2, facecolors="none", edgecolors="#EE00EE", zorder=230)
 
 
