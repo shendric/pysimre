@@ -98,12 +98,28 @@ class SimreRepository(ClassTemplate):
 
         # Get filename and create data object
         filepath = self.get_calval_filepath(orbit_id)
-        calval_dataset = CalValDataset(
-            ctlg_info.pyclass,
-            filepath,
-            self.get_calval_dataset_id(orbit_id, source_id),
-            orbit_id,
-            metadata)
+        if type(filepath) is list: 
+            calval_dataset = CalValDataset(
+                ctlg_info.pyclass,
+                filepath[0],
+                self.get_calval_dataset_id(orbit_id, source_id),
+                orbit_id,
+                metadata)
+            for filepath_to_merge in filepath[1:]:
+                calval_dataset_to_merge = CalValDataset(
+                    ctlg_info.pyclass,
+                    filepath_to_merge,
+                    self.get_calval_dataset_id(orbit_id, source_id),
+                    orbit_id,
+                    metadata)
+                calval_dataset.append(calval_dataset_to_merge)
+        else:
+            calval_dataset = CalValDataset(
+                ctlg_info.pyclass,
+                filepath,
+                self.get_calval_dataset_id(orbit_id, source_id),
+                orbit_id,
+                metadata)
 
         return calval_dataset
 
@@ -156,9 +172,13 @@ class SimreRepository(ClassTemplate):
 
         # Check if file exists
         calval_filepath = self.get_calval_filepath(orbit_id)
-        has_product_file = os.path.isfile(calval_filepath)
-        if has_product_file:
-            return True
+        if type(calval_filepath) is list:
+            has_product_files = [os.path.isfile(f) for f in calval_filepath]
+            has_product_file = False not in has_product_files
+        else:
+            has_product_file = os.path.isfile(calval_filepath)
+
+        return has_product_file
         
         msg = "Entry for %s exist in calval config, file does not"
         msg = msg % orbit_id
@@ -167,8 +187,12 @@ class SimreRepository(ClassTemplate):
 
     def get_calval_filepath(self, orbit_id):
         ctlg = self._calval_catalogue.orbit_id_map
-        return os.path.join(self.local_calval_path,
-                            ctlg[orbit_id].calval_filename)
+        calval_filename = ctlg[orbit_id].calval_filename
+        if type(calval_filename) is list: 
+            filepath = [os.path.join(self.local_calval_path, f) for f in calval_filename]
+        else:
+            filepath =  os.path.join(self.local_calval_path, calval_filename)
+        return filepath
 
     def get_region_label(self, region_id):
         try:
