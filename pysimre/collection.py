@@ -271,6 +271,11 @@ class OrbitDataEnsemble(ClassTemplate):
             lons = np.concatenate([self._members[name][i].lons
                                   for name in self.dataset_ids])
 
+            # There might be the case where there are no valid lon/lat pairs for
+            # a given time
+            if len(lats) == 0:
+                continue 
+
             # Get index of median of latitude value ()
             center_index = np.argsort(lats)[len(lats)//2]
             self._longitude[i] = lons[center_index]
