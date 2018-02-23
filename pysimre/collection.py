@@ -16,7 +16,7 @@ import numpy as np
 
 from pysimre.misc import ClassTemplate, pid2dt
 from pysimre.dataset import OrbitThicknessDataset
-from pysimre.output import GridReconciledNetCDF
+from pysimre.output import GridReconciledNetCDF, OrbitReconciledNetCDF
 
 # %% Orbit Collection classes
 
@@ -55,6 +55,11 @@ class OrbitCollection(ClassTemplate):
         """ Returns a OrbitThicknessDataset object for the given dataset_id.
         (None if dataset_id is not in the collection) """
         return self._datasets.get(dataset_id, None)
+
+    def write_reconciled_netcdf(self, output_directory):
+        nc = OrbitReconciledNetCDF(self.orbit_ensemble)
+        nc.write(output_directory)
+        
 
     def has_dataset(self, dataset_id):
         """ Return true of collection has the dataset `dataset_id` """

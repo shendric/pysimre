@@ -6,7 +6,8 @@ import glob
 import numpy as np
 from itertools import product
 
-from pysimre import REGION_DEF_FILENAME, RECONCILED_GRID_SUB_FOLDERS
+from pysimre import (REGION_DEF_FILENAME, RECONCILED_GRID_SUB_FOLDERS, 
+                     RECONCILED_ORBIT_SUB_FOLDERS)
 
 from pysimre.collection import OrbitCollection, GridCollection
 from pysimre.dataset import CalValDataset, GridSourceData, RegionGrid, DatasetMetadata
@@ -369,6 +370,10 @@ class SimreRepository(ClassTemplate):
     @property
     def reconciled_grid_dir(self):
         return os.path.join(self.local_path, *RECONCILED_GRID_SUB_FOLDERS)
+    
+    @property
+    def reconciled_orbit_dir(self):
+        return os.path.join(self.local_path, *RECONCILED_ORBIT_SUB_FOLDERS)
 
     @staticmethod
     def branches(t): 

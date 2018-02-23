@@ -11,6 +11,7 @@ local_path = os.sep.join(local_src_path.split(os.sep)[:-1])
 LOCAL_PATH_RESOURCES = os.path.join(local_path, "resources")
 REGION_DEF_FILENAME = r"simre_region_definition.yaml"
 RECONCILED_GRID_SUB_FOLDERS = ['reconciled', 'grid']
+RECONCILED_ORBIT_SUB_FOLDERS = ['reconciled', 'orbit']
 
 # SIMRE Grid settings
 DEFAULT_GRID_DEFINITION = "nh25kmEASE2.yaml"
