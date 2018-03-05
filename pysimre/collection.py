@@ -57,7 +57,7 @@ class OrbitCollection(ClassTemplate):
         return self._datasets.get(dataset_id, None)
 
     def write_reconciled_netcdf(self, output_directory):
-        nc = OrbitReconciledNetCDF(self.orbit_ensemble)
+        nc = OrbitReconciledNetCDF(self.orbit_ensemble, self.calval_ensemble)
         nc.write(output_directory)
         
 

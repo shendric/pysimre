@@ -16,6 +16,7 @@ class OrbitReconciledNetCDF(ClassTemplate):
     def __init__(self, ensemble, calval_ensemble):
         super(OrbitReconciledNetCDF, self).__init__(self.__class__.__name__)
         self._ensbl = ensemble
+        self._cv_ensbl = calval_ensemble
         self._folder = None
         self.rootgrp = None
 
@@ -71,6 +72,11 @@ class OrbitReconciledNetCDF(ClassTemplate):
                 attr_name = key+"_"+dataset_id
                 self.rootgrp.setncattr(attr_name, getattr(dataset_metadata, key))
     
+        calval_datasets = ""
+        for calval_id in self.cv_ensbl.dataset_ids:
+            source_id = calval_id[-3:]
+            calval_datasets = calval_datasets + source_id + ","
+        self.rootgrp.setncattr("calval_datasets", calval_datasets)
     def populate_variables(self):
             
         # Get shape of variables
@@ -131,6 +137,16 @@ class OrbitReconciledNetCDF(ClassTemplate):
         setattr(varnpts, "units", "1")
         varnpts[:] = npts
 
+        for calval_id in self.cv_ensbl.dataset_ids:
+            dataset_mean = self.cv_ensbl.get_member_mean(calval_id)
+            source_id = calval_id[-3:]
+            varname = "calval_"+source_id
+            cvdset = self.rootgrp.createVariable(varname, dataset_mean.dtype.str, dim, zlib=True)
+            long_name = "Validation thickness (%s)" % source_id.upper()
+            setattr(cvdset, "long_name", long_name)
+            setattr(cvdset, "standard_name", "sea_ice_thickness")
+            setattr(cvdset, "units", "m")
+            cvdset[:] = dataset_mean
 
     @property
     def output_folder(self):
@@ -144,6 +160,10 @@ class OrbitReconciledNetCDF(ClassTemplate):
     @property
     def ensbl(self):
         return self._ensbl
+
+    @property
+    def cv_ensbl(self):
+        return self._cv_ensbl
 
 class GridReconciledNetCDF(ClassTemplate):
 
