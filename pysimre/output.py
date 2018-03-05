@@ -1,7 +1,7 @@
 import os
 import sys
 import textwrap
-from netCDF4 import Dataset, num2date
+from netCDF4 import Dataset, num2date, date2num
 from collections import defaultdict, OrderedDict
 import numpy as np
 
@@ -9,8 +9,11 @@ from pysimre.misc import ClassTemplate
 
 
 class OrbitReconciledNetCDF(ClassTemplate):
-    
-    def __init__(self, ensemble):
+
+    units = "seconds since 1970-01-01"
+    calendar = "standard"
+
+    def __init__(self, ensemble, calval_ensemble):
         super(OrbitReconciledNetCDF, self).__init__(self.__class__.__name__)
         self._ensbl = ensemble
         self._folder = None
@@ -29,6 +32,7 @@ class OrbitReconciledNetCDF(ClassTemplate):
         self.log.info("Write SIMRE reconciled netcdf: %s" % self.output_filepath)
         self.rootgrp = Dataset(self.output_filepath, "w")
         self.populate_global_attributes()
+        self.populate_variables()
         try:
             # self.populate_global_attributes()
             self.populate_variables()
@@ -54,6 +58,7 @@ class OrbitReconciledNetCDF(ClassTemplate):
         
         self.rootgrp.setncattr("summary", summary)
         self.rootgrp.setncattr("orbit_id", self.ensbl.orbit_id)
+        self.rootgrp.setncattr("ensemble_size_seconds", self.ensbl.member_size_seconds)
         self.rootgrp.setncattr("cdm_data_type", "Trajectory")
         self.rootgrp.setncattr("creator_name", "Stefan Hendricks")
         self.rootgrp.setncattr("creator_email", "stefan.hendricks@awi.de")
@@ -62,13 +67,70 @@ class OrbitReconciledNetCDF(ClassTemplate):
         self.rootgrp.setncattr("datasets", ",".join(dataset_ids))
         for dataset_id in dataset_ids:
             dataset_metadata = self.ensbl.get_dataset_metadata(dataset_id)
-            print dataset_metadata
             for key in ["summary", "reference", "contributor", "institution", "version"]:
                 attr_name = key+"_"+dataset_id
                 self.rootgrp.setncattr(attr_name, getattr(dataset_metadata, key))
     
     def populate_variables(self):
-        pass
+            
+        # Get shape of variables
+        shape = np.shape(self.ensbl.time)
+        dimdict = OrderedDict([("time", shape[0])])
+        
+        # Write dimensions
+        dims = dimdict.keys()
+        for key in dims:
+            self.rootgrp.createDimension(key, dimdict[key])
+
+        # Write Variables
+        dim = tuple(dims)
+        time = self.ensbl.time
+        time_num = date2num(time, self.units, self.calendar)
+        dtype_str = time_num.dtype.str
+        varlon = self.rootgrp.createVariable("time", dtype_str, dim, zlib=True)
+        setattr(varlon, "long_name", "utc timestamp")
+        setattr(varlon, "units", self.units)
+        varlon[:] = time_num
+
+        dtype_str = self.ensbl.longitude.dtype.str
+        varlon = self.rootgrp.createVariable("longitude", dtype_str, dim, zlib=True)
+        setattr(varlon, "long_name", "longitude of ensemble center")
+        setattr(varlon, "standard_name", "longitude")
+        setattr(varlon, "units", "degrees_east")
+        varlon[:] = self.ensbl.longitude
+
+        varlat = self.rootgrp.createVariable("latitude", dtype_str, dim, zlib=True)
+        setattr(varlat, "long_name", "latitude of ensemble center")
+        setattr(varlat, "standard_name", "latitude")
+        setattr(varlat, "units", "degrees_north")
+        varlat[:] = self.ensbl.latitude
+
+        ensemble_mean = self.ensbl.get_ensemble_mean()
+        varmsit = self.rootgrp.createVariable("mean_thickness", dtype_str, dim, zlib=True)
+        setattr(varmsit, "long_name", "Mean thickness from ensemble members")
+        setattr(varmsit, "standard_name", "sea_ice_thickness")
+        setattr(varmsit, "units", "m")
+        varmsit[:] = ensemble_mean
+
+        ensemble_min, ensemble_max = self.ensbl.get_ensemble_minmax()
+        varminsit = self.rootgrp.createVariable("min_thickness", dtype_str, dim, zlib=True)
+        setattr(varminsit, "long_name", "Minimum thickness of all ensemble members")
+        setattr(varminsit, "standard_name", "sea_ice_thickness")
+        setattr(varminsit, "units", "m")
+        varminsit[:] = ensemble_min
+
+        varmaxsit = self.rootgrp.createVariable("max_thickness", dtype_str, dim, zlib=True)
+        setattr(varmaxsit, "long_name", "Maximum thickness of all ensemble members")
+        setattr(varmaxsit, "standard_name", "sea_ice_thickness")
+        setattr(varmaxsit, "units", "m")
+        varmaxsit[:] = ensemble_max
+
+        npts = self.ensbl.n_contributing_members
+        varnpts = self.rootgrp.createVariable("n_points", npts.dtype.str, dim, zlib=True)
+        setattr(varnpts, "long_name", "Number of ensemble members")
+        setattr(varnpts, "units", "1")
+        varnpts[:] = npts
+
 
     @property
     def output_folder(self):
