@@ -387,7 +387,8 @@ class OrbitEnsembleItem(ClassTemplate):
 
     @property
     def n_points(self):
-        return len(self._points)
+        valid_points = np.where(np.isfinite(self._points))[0]
+        return len(valid_points)
 
     @property
     def mean(self):
