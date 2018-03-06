@@ -254,9 +254,20 @@ class OrbitCollectionGraph(ClassTemplate):
         alongtrack_args = dict(norm=plt.Normalize(0, orbit_ensemble.n_members),
                                cmap=cmap)
         lon, lat = orbit_ensemble.longitude, orbit_ensemble.latitude
+
+        # Zip calval information
+        calval_ensemble = self._oc.calval_ensemble
+        calval = []
+        calval_props = dict(aem=self.calval_props_aem, oib=self.calval_props_oib)
+        for calval_id in calval_ensemble.dataset_ids:
+            dataset_mean = calval_ensemble.get_member_mean(calval_id)
+            source_id = calval_id[-3:]
+            calval_subset = np.where(np.isfinite(dataset_mean))[0]
+            calval.append((lon[calval_subset], lat[calval_subset], calval_props[source_id]))
+
         OrbitParameterMap(self.ax_map, lon, lat,
                           zval=orbit_ensemble.n_contributing_members,
-                          alongtrack_args=alongtrack_args)
+                          alongtrack_args=alongtrack_args, calval=calval)
         self.ax_map.set_title(self._oc.orbit_id)
 
     def _add_metadata(self):
@@ -286,6 +297,13 @@ class OrbitCollectionGraph(ClassTemplate):
         filename = filename % (self._oc.ensemble_item_size, self._oc.orbit_id)
         return os.path.join(self._output_path, filename)
 
+    @property
+    def calval_props_oib(self):
+        return dict(lw=2, facecolors="none", marker="s", edgecolors="#7F00FF")
+
+    @property
+    def calval_props_aem(self):
+        return dict(lw=2, facecolors="none", edgecolors="#EE00EE")
 
 class OrbitParameterGraph(object):
 
@@ -612,7 +630,8 @@ class OrbitEnsembleScatterGraph(object):
 class OrbitParameterMap(object):
 
     def __init__(self, ax, lons, lats, basemap_args=None,
-                 zval=None, alongtrack_args=None, colorbar=None):
+                 zval=None, alongtrack_args=None, colorbar=None,
+                 calval=None):
         """ Generate a simple map with orbit location """
 
         grid = {
@@ -661,6 +680,11 @@ class OrbitParameterMap(object):
             plt.colorbar(lc, ax=ax, shrink=0.7, aspect=15,
                          drawedges=False, orientation="horizontal",
                          **colorbar)
+
+        if calval is not None:
+            for calval_dset in calval:
+                lon, lat, props = calval_dset
+                m.scatter(lon, lat, zorder=199, latlon=True, **props)
 
     def _get_parallels(self, grid, type):
         latmax = 88
