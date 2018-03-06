@@ -33,7 +33,6 @@ class OrbitReconciledNetCDF(ClassTemplate):
         self.log.info("Write SIMRE reconciled netcdf: %s" % self.output_filepath)
         self.rootgrp = Dataset(self.output_filepath, "w")
         self.populate_global_attributes()
-        self.populate_variables()
         try:
             # self.populate_global_attributes()
             self.populate_variables()
@@ -72,11 +71,11 @@ class OrbitReconciledNetCDF(ClassTemplate):
                 attr_name = key+"_"+dataset_id
                 self.rootgrp.setncattr(attr_name, getattr(dataset_metadata, key))
     
-        calval_datasets = ""
+        calval_dataset_ids = []
         for calval_id in self.cv_ensbl.dataset_ids:
             source_id = calval_id[-3:]
-            calval_datasets = calval_datasets + source_id + ","
-        self.rootgrp.setncattr("calval_datasets", calval_datasets)
+            calval_dataset_ids.append(source_id)
+        self.rootgrp.setncattr("calval_datasets", ",".join(calval_dataset_ids))
     def populate_variables(self):
             
         # Get shape of variables
