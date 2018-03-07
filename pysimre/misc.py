@@ -8,6 +8,8 @@ Created on Wed Sep 06 17:02:56 2017
 from treedict import TreeDict
 from logbook import Logger, StreamHandler
 from datetime import datetime
+from netCDF4 import Dataset
+import numpy as np
 import yaml
 import sys
 import os
@@ -77,6 +79,74 @@ class ErrorStatus(object):
     def message(self):
         return ",".join(self.messages)
 
+
+class ReadNC(object):
+    """
+    Quick & dirty method to parse content of netCDF file into a python object
+    with attributes from file variables
+    """
+    def __init__(self, filename, verbose=False, autoscale=True,
+                 nan_fill_value=False):
+        self.error = ErrorStatus()
+        self.parameters = []
+        self.attributes = []
+        self.verbose = verbose
+        self.autoscale = autoscale
+        self.nan_fill_value = nan_fill_value
+        self.filename = filename
+        self.parameters = []
+        self.read_content()
+
+    def read_content(self):
+
+        self.keys = []
+
+        # Open the file
+        try:
+            f = Dataset(self.filename)
+        except RuntimeError:
+            msg = "Cannot option netCDF file: %s" % self.filename
+            self.error.add_error("nc-runtime-error", msg)
+            self.error.raise_on_error()
+
+        f.set_auto_scale(self.autoscale)
+
+        # Get the global attributes
+        for attribute_name in f.ncattrs():
+
+            self.attributes.append(attribute_name)
+            attribute_value = getattr(f, attribute_name)
+
+            # Convert timestamps back to datetime objects
+            # TODO: This needs to be handled better
+            # if attribute_name in ["start_time", "stop_time"]:
+            #     attribute_value = num2date(
+            #         attribute_value, self.time_def.units,
+            #         calendar=self.time_def.calendar)
+            # setattr(self, attribute_name, attribute_value)
+
+        # Get the variables
+        for key in f.variables.keys():
+
+            variable = f.variables[key][:]
+
+            try:
+                is_float = variable.dtype in ["float32", "float64"]
+                has_mask = hasattr(variable, "mask")
+            except:
+                is_float, has_mask = False, False
+
+            if self.nan_fill_value and has_mask and is_float:
+                is_fill_value = np.where(variable.mask)
+                variable[is_fill_value] = np.nan
+
+            setattr(self, key, variable)
+            self.keys.append(key)
+            self.parameters.append(key)
+            if self.verbose:
+                print key
+        self.parameters = f.variables.keys()
+        f.close()
 
 def parse_config_file(filename, output="treedict"):
     """
