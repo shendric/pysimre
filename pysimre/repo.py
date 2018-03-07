@@ -375,6 +375,11 @@ class SimreRepository(ClassTemplate):
     def reconciled_orbit_dir(self):
         return os.path.join(self.local_path, *RECONCILED_ORBIT_SUB_FOLDERS)
 
+    @property
+    def reconciled_orbit_files(self):
+        search = os.path.join(self.reconciled_orbit_dir, "*.nc")
+        return sorted(glob.glob(search))
+
     @staticmethod
     def branches(t): 
         return list(t.iterkeys(recursive=False, branch_mode='only'))

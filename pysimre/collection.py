@@ -14,7 +14,7 @@ from itertools import product
 
 import numpy as np
 
-from pysimre.misc import ClassTemplate, pid2dt
+from pysimre.misc import ClassTemplate, ReadNC, pid2dt, file_basename
 from pysimre.dataset import OrbitThicknessDataset
 from pysimre.output import GridReconciledNetCDF, OrbitReconciledNetCDF
 
@@ -462,8 +462,83 @@ class OrbitEnsembleItem(ClassTemplate):
     def dataset_id(self):
         return self.metadata.id
 
-# %% Grid Collection Classes
 
+class OrbitValidationCollection(ClassTemplate):
+
+    def __init__(self, reconciled_orbit_files, calval_targets = ["aem", "oib"]):
+        super(OrbitValidationCollection, self).__init__(self.__class__.__name__)
+        self._reconciled_orbit_files = reconciled_orbit_files
+        self._cvtrg = calval_targets
+        self._src_rcnld = {}
+        self._parse_rcnld_files()
+        self._merge_rcnld_data()
+
+    def _parse_rcnld_files(self):
+        """ Read the reconciled netcdf's and store the data for later 
+        reorganization """
+
+        for filename in self.reconciled_orbit_files:
+            id = file_basename(filename)
+            self._src_rcnld[id] = OrbitReconciledDataset(id, filename)
+
+    def _merge_rcnld_data(self):
+        """ Merge the content of reconciled source files """
+
+        # Get list of parameters
+        all_nc_vars = []
+        for id in self.rcnld_ids:
+            all_nc_vars.extend(self._src_rcnld[id].nc.parameters)
+        nc_vars = np.unique(all_nc_vars)
+
+        # Init merged data container
+        rcnld_data = {}
+        for nc_var in nc_vars:
+            rcnld_data[nc_var] = np.array([])
+
+        # Merge data
+        for id in self.rcnld_ids:
+            rcnld_src = self._src_rcnld[id].nc
+            # Get the number of elements
+            n_elements = len(rcnld_src.longitude)
+
+            # Try to extract all parameters
+            # -> fill with dummy values if any variable does not exist in specific orbit
+            for nc_var in nc_vars:
+                try:
+                    values = getattr(rcnld_src, nc_var)
+                except AttributeError:
+                    values = np.full((n_elements), np.nan)
+                rcnld_data[nc_var] = np.append(rcnld_data[nc_var], values)
+
+        # Save to object
+        for nc_var in nc_vars: 
+            setattr(self, nc_var, rcnld_data[nc_var])
+
+    @property
+    def reconciled_orbit_files(self):
+        return list(self._reconciled_orbit_files)
+
+    @property
+    def calval_targets(self):
+        return list(self._cvtrg)
+
+    @property
+    def rcnld_ids(self):
+        return sorted(self._src_rcnld.keys())
+
+
+class OrbitReconciledDataset(ClassTemplate):
+
+    def __init__(self, id, path):
+        self._id = id
+        self._path = path
+        self._nc = ReadNC(path)
+
+    @property
+    def nc(self):
+        return self._nc
+
+# %% Grid Collection Classes
 
 class GridCollection(ClassTemplate):
 
